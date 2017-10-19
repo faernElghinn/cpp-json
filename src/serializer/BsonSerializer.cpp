@@ -347,6 +347,7 @@ Json_t BsonSerializer::readBson(BIStream& in, char type){
         }
         case ELE_TYPE_NULL:
             return std::make_shared<JsonNull>();
+
         case ELE_TYPE_BIN:
         {
             uint32_t size = 0;
@@ -371,8 +372,8 @@ Json_t BsonSerializer::readBson(BIStream& in, char type){
                     return uuid;
                 } break;
 
-
                 default:
+                    throw Exception("Unknown subtype " + toString(subtype));
                     break;
             }
 

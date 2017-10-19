@@ -2,6 +2,7 @@
 
 #include <elladan/UUID.h>
 #include <elladan/FlagSet.h>
+#include <elladan/Exception.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <bitset>
@@ -118,6 +119,7 @@ public:
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
+    bool getValue() const { return asBool; }
 
     bool asBool;
 };
@@ -130,6 +132,7 @@ public:
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
+    int64_t getValue() const { return asInt; }
 
     int64_t asInt;
 };
@@ -142,6 +145,7 @@ public:
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
+    double getValue() const { return asDouble; }
 
     double asDouble;
 };
@@ -149,11 +153,13 @@ public:
 class JsonString: public Json
 {
 public:
+    ~JsonString(){}
     JsonString();
     JsonString(const std::string& val);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
+    const std::string& getValue() const { return asString; }
 
     std::string asString;
 };
@@ -182,11 +188,10 @@ class Binary
 {
 public:
     Binary();
+    virtual ~Binary();
     Binary(size_t size);
     Binary(void* data, size_t size);
     Binary(const std::string& str);
-
-    ~Binary();
 
     std::string toHex() const;
 
@@ -203,6 +208,7 @@ public:
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
+    Binary_t getValue() const { return asBinary; }
 
     Binary_t asBinary;
 };
@@ -215,6 +221,7 @@ public:
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
+    const elladan::UUID& getValue() const { return asUUID; }
 
     elladan::UUID asUUID;
 };
@@ -226,61 +233,89 @@ struct cmpJson {
     }
 };
 
-template <typename T>
-typename std::enable_if<!std::is_enum<T>::value, Json_t>::type
-toJson(T value);
-
-template<> Json_t toJson<bool> (bool val);
-template<> Json_t toJson<float> (float val);
-template<> Json_t toJson<double> (double val);
-template<> Json_t toJson<int32_t> (int32_t val);
-template<> Json_t toJson<int64_t> (int64_t val);
-template<> Json_t toJson<uint32_t> (uint32_t val);
-template<> Json_t toJson<uint64_t> (uint64_t val);
-template<> Json_t toJson<const std::string&> (const std::string& val);
-template<> Json_t toJson<std::string&> (std::string& val);
-template<> Json_t toJson<std::string> (std::string val);
-template<> Json_t toJson<const char*> (const char* val);
-template<> Json_t toJson<char*> (char* val);
-template<> Json_t toJson<json::Json_t> (json::Json_t val);
-template<> Json_t toJson<Binary_t> (Binary_t val);
-template<> Json_t toJson<const elladan::UUID&> (const elladan::UUID& val);
-template<> Json_t toJson<elladan::UUID> (elladan::UUID val);
-
-template <typename T>
+template<typename T>
+typename std::enable_if<std::is_same<T, bool>::value, Json_t>::type
+toJson_imp(T val) {
+    return std::make_shared<json::JsonBool>(val);
+}
+template<typename T>
+typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, Json_t>::type
+toJson_imp(T val) {
+    return std::make_shared<json::JsonInt>(val);
+}
+template<typename T>
+typename std::enable_if<std::is_floating_point<T>::value, Json_t>::type
+toJson_imp(T val) {
+    return std::make_shared<json::JsonDouble>(val);
+}
+template<typename T>
 typename std::enable_if<std::is_enum<T>::value, Json_t>::type
-toJson(T val) {
-    return toJson<typename std::underlying_type<T>::type>((typename std::underlying_type<T>::type)val);
+toJson_imp(T val) {
+    typedef typename std::underlying_type<T>::type U;
+    return toJson_imp<U>((U)val);
+}
+template <typename T>
+Json_t toJson_imp (const std::string& val){
+    return std::make_shared<json::JsonString>(val);
+}
+template <typename T>
+Json_t toJson_imp (const char* val){
+    return std::make_shared<json::JsonString>(std::string(val));
+}
+template <typename T>
+Json_t toJson_imp (json::Json_t val){
+    return val;
+}
+template <typename T>
+Json_t toJson_imp (Binary_t& val){
+    return std::make_shared<json::JsonBinary>(val);
+}
+template <typename T>
+Json_t toJson_imp (const elladan::UUID& val){
+    return std::make_shared<json::JsonUUID>(val);
+}
+
+template <typename T>
+Json_t toJson(T value){
+    return toJson_imp<T>(value);
 }
 
 
-
-template <typename T>
-typename std::enable_if<!std::is_enum<T>::value, T>::type
-fromJson(Json_t ele);
-
-
-template <typename T>
-typename std::enable_if<std::is_enum<T>::value, T>::type
-fromJson(Json_t ele) {
-    return (T) fromJson<typename std::underlying_type<T>::type>(ele);
+template<typename T>
+typename std::enable_if<std::is_same<T, bool>::value, void>::type
+fromJson_imp(Json_t ele, T& out) {
+    if (ele->getType() != JSON_BOOL) throw Exception("Invalid format, expected JSON_BOOL" );
+    out = std::dynamic_pointer_cast<JsonBool>(ele)->asBool;
 }
+template<typename T>
+typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, void>::type
+fromJson_imp(Json_t ele, T& out) {
+    if (ele->getType() != JSON_INTEGER) throw Exception("Invalid format, expected JSON_INTEGER" );
+    out = std::dynamic_pointer_cast<JsonInt>(ele)->asInt;
+}
+template<typename T>
+typename std::enable_if<std::is_floating_point<T>::value, void>::type
+fromJson_imp(Json_t ele, T& out) {
+    if (ele->getType() != JSON_DOUBLE) throw Exception("Invalid format, expected JSON_DOUBLE" );
+    out= std::dynamic_pointer_cast<JsonDouble>(ele)->asDouble;
+}
+template<typename T>
+typename std::enable_if<std::is_enum<T>::value, void>::type
+fromJson_imp(Json_t ele, T& out) {
+    if (ele->getType() != JSON_INTEGER) throw Exception("Invalid format, expected JSON_INTEGER" );
+    out = (T)std::dynamic_pointer_cast<JsonInt>(ele)->asInt;
+}
+void fromJson_imp (Json_t ele, json::Json_t& out);
+void fromJson_imp (Json_t ele, std::string& out);
+void fromJson_imp (Json_t ele, Binary_t& out);
+void fromJson_imp (Json_t ele, elladan::UUID& out);
 
-template<> bool fromJson<bool> (Json_t ele);
-template<> double fromJson<double> (Json_t ele);
-template<> float fromJson<float> (Json_t ele);
-template<> int64_t fromJson<int64_t> (Json_t ele);
-template<> int32_t fromJson<int32_t> (Json_t ele);
-template<> int16_t fromJson<int16_t> (Json_t ele);
-template<> int8_t fromJson<int8_t> (Json_t ele);
-template<> uint64_t fromJson<uint64_t> (Json_t ele);
-template<> uint32_t fromJson<uint32_t> (Json_t ele);
-template<> uint16_t fromJson<uint16_t> (Json_t ele);
-template<> uint8_t fromJson<uint8_t> (Json_t ele);
-template<> elladan::UUID fromJson<elladan::UUID> (Json_t ele);
-template<> std::string fromJson<std::string> (Json_t ele);
-template<> Json_t fromJson<json::Json_t> (Json_t ele);
-template<> Binary_t fromJson<Binary_t> (Json_t ele);
+template <typename T>
+T fromJson(Json_t ele){
+    T out;
+    fromJson_imp(ele, out);
+    return out;
+}
 
 
 } } // namespace elladan::json
