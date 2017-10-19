@@ -13,6 +13,7 @@
 #include <cstring>
 #include <sstream>
 #include <utility>
+#include <cassert>
 
 #include "serializer/BsonSerializer.h"
 #include "serializer/JsonSerializer.h"
@@ -266,7 +267,9 @@ Binary::Binary() :
         size(0), data(nullptr) {
 }
 Binary::Binary(size_t s) :
-        size(s), data(malloc(size)) {
+        size(s) {
+    data = malloc(size);
+    assert(data != nullptr);
 }
 Binary::Binary(void* d, size_t s) :
         size(s), data(d) {
@@ -334,92 +337,111 @@ Json_t JsonUUID::deep_copy() const{
 JsonUUID::JsonUUID() {}
 JsonUUID::JsonUUID(const elladan::UUID& uid) : asUUID(uid) {}
 
-template< >Json_t toJson<bool> (bool val){
-    return std::make_shared<json::JsonBool>(val);
+void fromJson_imp (Json_t ele, std::string& out) {
+    if (ele->getType() != JSON_STRING) throw Exception("Invalid format, expected JSON_STRING" );
+    out = std::dynamic_pointer_cast<JsonString>(ele)->asString;
 }
-template< >Json_t toJson<float> (float val){
-    return std::make_shared<json::JsonDouble>(val);
+void fromJson_imp (Json_t ele, json::Json_t& out) {
+    out = ele;
 }
-template< >Json_t toJson<double> (double val){
-    return std::make_shared<json::JsonDouble>(val);
+void fromJson_imp (Json_t ele, Binary_t& out) {
+    if (ele->getType() == JSON_BINARY)      out = std::dynamic_pointer_cast<JsonBinary>(ele)->asBinary;
+    else if (ele->getType() == JSON_STRING) out = std::make_shared<Binary>(std::dynamic_pointer_cast<JsonString>(ele)->asString);
+    else                                    throw Exception("Invalid format, expeced JSON_UUID");
 }
-template< >Json_t toJson<const std::string&> (const std::string& val){
-    return std::make_shared<json::JsonString>(val);
-}
-template< >Json_t toJson<std::string&> (std::string& val){
-    return std::make_shared<json::JsonString>(val);
-}
-template< >Json_t toJson<const char*> (const char* val){
-    return std::make_shared<json::JsonString>(val);
-}
-template< >Json_t toJson<char*> (char* val){
-    return std::make_shared<json::JsonString>(val);
-}
-template< >Json_t toJson<std::string> (std::string val){
-    return std::make_shared<json::JsonString>(val);
-}
-template< >Json_t toJson<int32_t> (int32_t val){
-    return std::make_shared<json::JsonInt>(val);
-}
-template< >Json_t toJson<uint32_t> (uint32_t val){
-    return std::make_shared<json::JsonInt>(val);
-}
-template< >Json_t toJson<int64_t> (int64_t val){
-    return std::make_shared<json::JsonInt>(val);
-}
-template< > Json_t toJson<uint64_t> (uint64_t val){
-    return std::make_shared<json::JsonInt>(val);
-}
-template< >Json_t toJson<json::Json_t> (json::Json_t val){
-    return val;
-}
-template< >Json_t toJson<Binary_t> (Binary_t val){
-    return std::make_shared<JsonBinary>(val);
-}
-template< >Json_t toJson<const elladan::UUID&> (const elladan::UUID& val){
-    return std::make_shared<JsonUUID>(val);
-}
-template< >Json_t toJson<elladan::UUID> (elladan::UUID val){
-    return std::make_shared<JsonUUID>(val);
+void fromJson_imp (Json_t ele, elladan::UUID& out) {
+    if (ele->getType() == JSON_UUID)        out = std::dynamic_pointer_cast<JsonUUID>(ele)->asUUID;
+    else if (ele->getType() == JSON_STRING) out = elladan::UUID::fromString(std::dynamic_pointer_cast<JsonString>(ele)->asString);
+    else                                    throw Exception("Invalid format, expeced JSON_UUID");
 }
 
-#define FromJson(Type, JSON_TYPE, Value) \
-template<> Type fromJson<Type> (Json_t ele){\
-    if (ele->getType() != JSON_TYPE) throw Exception("Invalid format, expeced " #JSON_TYPE);\
-    return std::dynamic_pointer_cast<Json##Value>(ele)->as##Value;\
-}
-FromJson(bool, JSON_BOOL, Bool);
-FromJson(int64_t, JSON_INTEGER, Int);
-FromJson(int32_t, JSON_INTEGER, Int);
-FromJson(int16_t, JSON_INTEGER, Int);
-FromJson(int8_t, JSON_INTEGER, Int);
-FromJson(uint64_t, JSON_INTEGER, Int);
-FromJson(uint32_t, JSON_INTEGER, Int);
-FromJson(uint16_t, JSON_INTEGER, Int);
-FromJson(uint8_t, JSON_INTEGER, Int);
-FromJson(double, JSON_DOUBLE, Double);
-FromJson(float, JSON_DOUBLE, Double);
-FromJson(std::string, JSON_STRING, String);
 
-template<> Json_t fromJson<Json_t> (Json_t value){
-    return value;
-}
-template<> elladan::UUID fromJson<elladan::UUID> (Json_t ele){
-   if (ele->getType() == JSON_UUID)
-     return std::dynamic_pointer_cast<JsonUUID>(ele)->asUUID;
-   else if (ele->getType() == JSON_STRING)
-     return elladan::UUID::fromString(std::dynamic_pointer_cast<JsonString>(ele)->asString);
-   else
-       throw Exception("Invalid format, expeced JSON_UUID");
-}
-template<> Binary_t fromJson<Binary_t> (Json_t ele){
-   if (ele->getType() == JSON_BINARY)
-     return std::dynamic_pointer_cast<JsonBinary>(ele)->asBinary;
-   else if (ele->getType() == JSON_STRING)
-       return std::make_shared<Binary>(std::dynamic_pointer_cast<JsonString>(ele)->asString);
-   else
-       throw Exception("Invalid format, expeced JSON_UUID");
-}
+//template< >Json_t toJson<bool> (bool val){
+//    return std::make_shared<json::JsonBool>(val);
+//}
+//template< >Json_t toJson<float> (float val){
+//    return std::make_shared<json::JsonDouble>(val);
+//}
+//template< >Json_t toJson<double> (double val){
+//    return std::make_shared<json::JsonDouble>(val);
+//}
+//template< >Json_t toJson<const std::string&> (const std::string& val){
+//    return std::make_shared<json::JsonString>(val);
+//}
+//template< >Json_t toJson<std::string&> (std::string& val){
+//    return std::make_shared<json::JsonString>(val);
+//}
+//template< >Json_t toJson<const char*> (const char* val){
+//    return std::make_shared<json::JsonString>(val);
+//}
+//template< >Json_t toJson<char*> (char* val){
+//    return std::make_shared<json::JsonString>(val);
+//}
+//template< >Json_t toJson<std::string> (std::string val){
+//    return std::make_shared<json::JsonString>(val);
+//}
+//template< >Json_t toJson<int32_t> (int32_t val){
+//    return std::make_shared<json::JsonInt>(val);
+//}
+//template< >Json_t toJson<uint32_t> (uint32_t val){
+//    return std::make_shared<json::JsonInt>(val);
+//}
+//template< >Json_t toJson<int64_t> (int64_t val){
+//    return std::make_shared<json::JsonInt>(val);
+//}
+//template< > Json_t toJson<uint64_t> (uint64_t val){
+//    return std::make_shared<json::JsonInt>(val);
+//}
+//template< >Json_t toJson<json::Json_t> (json::Json_t val){
+//    return val;
+//}
+//template< >Json_t toJson<Binary_t> (Binary_t val){
+//    return std::make_shared<JsonBinary>(val);
+//}
+//template< >Json_t toJson<const elladan::UUID&> (const elladan::UUID& val){
+//    return std::make_shared<JsonUUID>(val);
+//}
+//template< >Json_t toJson<elladan::UUID> (elladan::UUID val){
+//    return std::make_shared<JsonUUID>(val);
+//}
+//
+//#define FromJson(Type, JSON_TYPE, Value) \
+//template<> Type fromJson<Type> (Json_t ele){\
+//    if (ele->getType() != JSON_TYPE) throw Exception("Invalid format, expeced " #JSON_TYPE);\
+//    return std::dynamic_pointer_cast<Json##Value>(ele)->as##Value;\
+//}
+//FromJson(bool, JSON_BOOL, Bool);
+//FromJson(int64_t, JSON_INTEGER, Int);
+//FromJson(int32_t, JSON_INTEGER, Int);
+//FromJson(int16_t, JSON_INTEGER, Int);
+//FromJson(int8_t, JSON_INTEGER, Int);
+//FromJson(uint64_t, JSON_INTEGER, Int);
+//FromJson(uint32_t, JSON_INTEGER, Int);
+//FromJson(uint16_t, JSON_INTEGER, Int);
+//FromJson(uint8_t, JSON_INTEGER, Int);
+//FromJson(double, JSON_DOUBLE, Double);
+//FromJson(float, JSON_DOUBLE, Double);
+//FromJson(std::string, JSON_STRING, String);
+//
+//template<> Json_t fromJson<Json_t> (Json_t value){
+//    return value;
+//}
+//template<> elladan::UUID fromJson<elladan::UUID> (Json_t ele){
+//   if (ele->getType() == JSON_UUID)
+//     return std::dynamic_pointer_cast<JsonUUID>(ele)->asUUID;
+//   else if (ele->getType() == JSON_STRING)
+//     return elladan::UUID::fromString(std::dynamic_pointer_cast<JsonString>(ele)->asString);
+//   else
+//       throw Exception("Invalid format, expeced JSON_UUID");
+//}
+//template<> Binary_t fromJson<Binary_t> (Json_t ele){
+//   if (ele->getType() == JSON_BINARY)
+//     return std::dynamic_pointer_cast<JsonBinary>(ele)->asBinary;
+//   else if (ele->getType() == JSON_STRING)
+//       return std::make_shared<Binary>(std::dynamic_pointer_cast<JsonString>(ele)->asString);
+//   else
+//       throw Exception("Invalid format, expeced JSON_UUID");
+//}
 
 
 } } // namespace elladan::json

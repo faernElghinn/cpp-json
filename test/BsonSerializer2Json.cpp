@@ -76,31 +76,29 @@ static const unsigned char  BsonObject[] = {
         0x00 // End of document
 };
 static const unsigned char BsonBinary[] = {
-        0x10, 0x0, 0x0, 0x0, // Size of data.
+        0x11, 0x0, 0x0, 0x0, // Size of data.
         0x05, '1', 0x00,
             0x04, 0x00, 0x00, 0x00, // Size of bin.
+            0x02,
             0x01, 0x02, 0x03, 0x04, // value of data.
         0x00 // End of document
 };
 
+std::string printAsHex(const unsigned char* str, size_t size){
+    std::string retVal;
+    retVal.reserve(size*6);
+    for (int i = 0; i < size; i++){
+        char hex[8];
+        sprintf(hex, "0x%02x, ", str[i]);
+        retVal += hex;
+    }
+    return retVal;
+}
+
 std::string printAsHex(const std::string& str){
-	std::string retVal;
-	for (int i = 0; i < str.size(); i++){
-		char hex[8];
-		sprintf(hex, "0x%02x, ", (unsigned char)str.c_str()[i]);
-		retVal += hex;
-	}
-	return retVal;
+    return printAsHex((const unsigned char*)str.c_str(), str.size());
 }
-std::string printAsHex(const unsigned char* str, int size){
-	std::string retVal;
-	for (int i = 0; i < size; i++){
-		char hex[8];
-		sprintf(hex, "0x%02x, ", str[i]);
-		retVal += hex;
-	}
-	return retVal;
-}
+
 
 #define DoTestAndCmp(Value, Type, assign) do{\
 \
