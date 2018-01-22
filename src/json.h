@@ -11,6 +11,8 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <cassert>
+
 
 namespace elladan {
 
@@ -89,6 +91,7 @@ DEF(JsonUUID);
 class Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_NONE;
     Json();
     virtual ~Json();
 
@@ -100,12 +103,24 @@ public:
     virtual JsonType getType() const;
     virtual int cmp (const Json* rigth) const;
     virtual Json_t deep_copy() const;
+
+#define TO(Type) Json##Type* to##Type(); const Json##Type* to##Type() const
+    TO(Bool  );
+    TO(Int   );
+    TO(Double);
+    TO(String);
+    TO(Array );
+    TO(Object);
+    TO(Binary);
+    TO(UUID);
+#undef TO
 };
 
 
 class JsonNull: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_NULL;
     JsonType getType() const;
     Json_t deep_copy() const;
     bool dump(std::ostream& out, size_t flags);
@@ -114,74 +129,81 @@ public:
 class JsonBool: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_BOOL;
     JsonBool();
     JsonBool(bool val);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
-    bool getValue() const { return asBool; }
 
-    bool asBool;
+    bool value;
 };
 
 class JsonInt: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_INTEGER;
     JsonInt();
     JsonInt(long int val);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
-    int64_t getValue() const { return asInt; }
 
-    int64_t asInt;
+    int64_t value;
 };
 
 class JsonDouble: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_DOUBLE;
     JsonDouble();
     JsonDouble(double val);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
-    double getValue() const { return asDouble; }
 
-    double asDouble;
+    double value;
 };
 
 class JsonString: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_STRING;
     ~JsonString(){}
     JsonString();
     JsonString(const std::string& val);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
-    const std::string& getValue() const { return asString; }
 
-    std::string asString;
+    std::string value;
 };
 
-class JsonArray: public Json, public std::vector<Json_t>
+class JsonArray: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_ARRAY;
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
 
     bool visited;
+    std::vector<Json_t> value;
 };
 
-class JsonObject: public Json, public std::map<std::string, Json_t>
+class JsonObject: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_OBJECT;
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
 
+    template <typename T>
+    T getValueOrDefault(const std::string& name, const T& defaultVal) const;
+
     bool visited;
+    std::map<std::string, Json_t> value;
 };
 
 class Binary
@@ -203,27 +225,27 @@ typedef std::shared_ptr<Binary> Binary_t;
 class JsonBinary: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_BINARY;
     JsonBinary();
     JsonBinary(Binary_t binary);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
-    Binary_t getValue() const { return asBinary; }
 
-    Binary_t asBinary;
+    Binary_t value;
 };
 
 class JsonUUID: public Json
 {
 public:
+    static constexpr JsonType TYPE = JSON_UUID;
     JsonUUID();
     JsonUUID(const elladan::UUID& uid);
     JsonType getType() const;
     int cmp (const Json* right) const;
     Json_t deep_copy() const;
-    const elladan::UUID& getValue() const { return asUUID; }
 
-    elladan::UUID asUUID;
+    elladan::UUID value;
 };
 
 
@@ -285,25 +307,25 @@ template<typename T>
 typename std::enable_if<std::is_same<T, bool>::value, void>::type
 fromJson_imp(Json_t ele, T& out) {
     if (ele->getType() != JSON_BOOL) throw Exception("Invalid format, expected JSON_BOOL" );
-    out = std::dynamic_pointer_cast<JsonBool>(ele)->asBool;
+    out = std::dynamic_pointer_cast<JsonBool>(ele)->value;
 }
 template<typename T>
 typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value, void>::type
 fromJson_imp(Json_t ele, T& out) {
     if (ele->getType() != JSON_INTEGER) throw Exception("Invalid format, expected JSON_INTEGER" );
-    out = std::dynamic_pointer_cast<JsonInt>(ele)->asInt;
+    out = std::dynamic_pointer_cast<JsonInt>(ele)->value;
 }
 template<typename T>
 typename std::enable_if<std::is_floating_point<T>::value, void>::type
 fromJson_imp(Json_t ele, T& out) {
     if (ele->getType() != JSON_DOUBLE) throw Exception("Invalid format, expected JSON_DOUBLE" );
-    out= std::dynamic_pointer_cast<JsonDouble>(ele)->asDouble;
+    out= std::dynamic_pointer_cast<JsonDouble>(ele)->value;
 }
 template<typename T>
 typename std::enable_if<std::is_enum<T>::value, void>::type
 fromJson_imp(Json_t ele, T& out) {
     if (ele->getType() != JSON_INTEGER) throw Exception("Invalid format, expected JSON_INTEGER" );
-    out = (T)std::dynamic_pointer_cast<JsonInt>(ele)->asInt;
+    out = (T)std::dynamic_pointer_cast<JsonInt>(ele)->value;
 }
 void fromJson_imp (Json_t ele, json::Json_t& out);
 void fromJson_imp (Json_t ele, std::string& out);
@@ -315,6 +337,14 @@ T fromJson(Json_t ele){
     T out;
     fromJson_imp(ele, out);
     return out;
+}
+
+template <typename T>
+T JsonObject::getValueOrDefault(const std::string& name, const T& defaultVal) const {
+    auto ite = value.find(name);
+    if (ite != value.end())
+        return fromJson<T>(ite->second);
+    return defaultVal;
 }
 
 

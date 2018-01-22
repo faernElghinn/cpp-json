@@ -88,19 +88,19 @@ static const unsigned char BsonBinary[] = {
         0x00 // End of document
 };
 
-#define TEST_SIMPLE_BT(src, Type, type, value)\
+#define TEST_SIMPLE_BT(src, Type, type, Value)\
 try{\
     std::stringstream ss;\
     ss.write((const char*)src, sizeof(src));\
     obj = std::dynamic_pointer_cast<JsonObject> (Json::read(&ss, DecodingOption(), StreamFormat::BSON));\
     if (!obj)\
         retVal += "\nCould not decode root object in " #src;\
-    else if (obj->count("1") != 1)\
+    else if (obj->value.count("1") != 1)\
         retVal += "\nCould not decode index of first item in" #src;\
-    else if (obj->operator []("1")->getType() != JSON_##Type )\
+    else if (obj->value["1"]->getType() != JSON_##Type )\
         retVal += "\nInvalid decoded type in " #src;\
-    else if (((Json##type*)obj->operator []("1").get())->as##type != value)\
-        retVal += "\nInvalid decoded value in " #src ", expected " + toString(value) + " got " + toString(((Json##type*)obj->operator []("1").get())->as##type);\
+    else if (((Json##type*)obj->value["1"].get())->value != Value)\
+        retVal += "\nInvalid decoded value in " #src ", expected " + toString(Value) + " got " + toString(((Json##type*)obj->value["1"].get())->value);\
 } catch (std::exception& e) {\
     retVal += std::string("\nError decoding ") + #src + " : " + e.what();\
 }
@@ -116,7 +116,7 @@ std::string testBsonToTxt(){
         obj = std::dynamic_pointer_cast<JsonObject> (Json::read(&ss, DecodingOption(), StreamFormat::BSON));
         if (!obj)
             retVal += "\nCould not decode root object in " "BsonNull";
-        else if (obj->count("1") != 1)
+        else if (obj->value.count("1") != 1)
             retVal += "\nCould not decode index of first item in" "BsonNull";
     } catch (std::exception& e) {
         retVal += std::string("\nError decoding ") + "BsonNull" + " : " + e.what();
@@ -135,19 +135,19 @@ std::string testBsonToTxt(){
         obj = std::dynamic_pointer_cast<JsonObject> (Json::read(&ss, DecodingOption(), StreamFormat::BSON));
         if (!obj)
             retVal += "\nCould not decode root object in " "BsonArr";
-        else if (obj->count("1") != 1)
+        else if (obj->value.count("1") != 1)
             retVal += "\nCould not decode index of 1st item in " "BsonArr";
-        else if (obj->operator []("1")->getType() != JSON_ARRAY)
+        else if (obj->value["1"]->getType() != JSON_ARRAY)
             retVal += "\nCould not decode type of " "BsonArr";
         else {
-            JsonArray_t arr = std::dynamic_pointer_cast<JsonArray>(obj->operator []("1"));
-            if (arr->size() != 3)
+            JsonArray_t arr = std::dynamic_pointer_cast<JsonArray>(obj->value["1"]);
+            if (arr->value.size() != 3)
                 retVal += "\nWrong number of element in " "BsonArr";
-            else if (((JsonBool*)arr->operator [](0).get())->asBool != false)
+            else if (((JsonBool*)arr->value[0].get())->value != false)
                 retVal += "\nCould not decode value of 1st item in " "BsonArr";
-            else if (((JsonBool*)arr->operator [](1).get())->asBool != true)
+            else if (((JsonBool*)arr->value[1].get())->value != true)
                 retVal += "\nCould not decode value of 2nd item in " "BsonArr";
-            else if (((JsonBool*)arr->operator [](2).get())->asBool != false)
+            else if (((JsonBool*)arr->value[2].get())->value != false)
                 retVal += "\nCould not decode value of 3rd item in " "BsonArr";
         }
     } catch (std::exception& e) {
@@ -160,23 +160,23 @@ std::string testBsonToTxt(){
         obj = std::dynamic_pointer_cast<JsonObject> (Json::read(&ss, DecodingOption(), StreamFormat::BSON));
         if (!obj)
             retVal += "\nCould not decode root object in " "BsonObject";
-        else if (obj->count("1") != 1)
+        else if (obj->value.count("1") != 1)
             retVal += "\nCould not decode index of 1st item in " "BsonObject";
-        else if (obj->operator []("1")->getType() != JSON_OBJECT)
+        else if (obj->value["1"]->getType() != JSON_OBJECT)
             retVal += "\nCould not decode type of " "BsonObject";
         else {
-            obj = std::dynamic_pointer_cast<JsonObject>(obj->operator []("1"));
-            if (obj->count("Test1") != 1)
+            obj = std::dynamic_pointer_cast<JsonObject>(obj->value["1"]);
+            if (obj->value.count("Test1") != 1)
                 retVal += "\nCould not decode index of 2nd item in " "BsonObject";
-            else if (obj->count("Test2") != 1)
+            else if (obj->value.count("Test2") != 1)
                 retVal += "\nCould not decode index of 2nd item in " "BsonObject";
-            else if (obj->count("Test3") != 1)
+            else if (obj->value.count("Test3") != 1)
                 retVal += "\nCould not decode index of 3rd item in " "BsonObject";
-            else if (((JsonBool*)obj->operator []("Test1").get())->asBool != false)
+            else if (((JsonBool*)obj->value["Test1"].get())->value != false)
                 retVal += "\nCould not decode value of 1st item in " "BsonObject";
-            else if (((JsonBool*)obj->operator []("Test2").get())->asBool != true)
+            else if (((JsonBool*)obj->value["Test2"].get())->value != true)
                 retVal += "\nCould not decode value of 2nd item in " "BsonObject";
-            else if (((JsonBool*)obj->operator []("Test3").get())->asBool != false)
+            else if (((JsonBool*)obj->value["Test3"].get())->value != false)
                 retVal += "\nCould not decode value of 3rd item in " "BsonObject";
         }
     } catch (std::exception& e) {
@@ -189,17 +189,17 @@ std::string testBsonToTxt(){
         obj = std::dynamic_pointer_cast<JsonObject> (Json::read(&ss, DecodingOption(), StreamFormat::BSON));
         if (!obj)
             retVal += "\nCould not decode root object in " "BsonBinary";
-        else if (obj->count("1") != 1)
+        else if (obj->value.count("1") != 1)
             retVal += "\nCould not decode index of 1st item in " "BsonBinary";
-        else if (obj->operator []("1")->getType() != JSON_BINARY)
+        else if (obj->value["1"]->getType() != JSON_BINARY)
             retVal += "\nCould not decode type of " "BsonBinary";
         else {
-            JsonBinary_t bin = std::dynamic_pointer_cast<JsonBinary>(obj->operator []("1"));
-            if (!bin->asBinary)
+            JsonBinary_t bin = std::dynamic_pointer_cast<JsonBinary>(obj->value["1"]);
+            if (!bin->value)
                 retVal += "\nEmpty data in " "BsonBinary";
-            else if (bin->asBinary->size != 4)
+            else if (bin->value->size != 4)
                 retVal += "\nInvalid data size in " "BsonBinary";
-            else if (*((uint32_t*)bin->asBinary->data) != (uint32_t) 0x04030201)
+            else if (*((uint32_t*)bin->value->data) != (uint32_t) 0x04030201)
                 retVal += "\nInvalid data in " "BsonBinary";
         }
     } catch (std::exception& e) {
@@ -224,36 +224,36 @@ std::string testBsonExtract(){
     JsonObject *obj;
 
     obj = root.get();
-    obj->operator[]("child0") = child0;
-    obj->operator[]("child1") = child1;
+    obj->value["child0"] = child0;
+    obj->value["child1"] = child1;
 
     obj = child0.get();
-    obj->operator[]("sub0") = child0_1;
-    obj->operator[]("sub1") = child0_2;
+    obj->value["sub0"] = child0_1;
+    obj->value["sub1"] = child0_2;
 
     obj = child1.get();
-    obj->operator[]("sub0") = child1_1;
-    obj->operator[]("sub1") = child1_2;
+    obj->value["sub0"] = child1_1;
+    obj->value["sub1"] = child1_2;
 
     obj = child0_1.get();
-    obj->operator[]("val0") = std::make_shared<JsonInt>(0);
-    obj->operator[]("val1") = std::make_shared<JsonInt>(1);
-    obj->operator[]("val2") = std::make_shared<JsonInt>(2);
+    obj->value["val0"] = std::make_shared<JsonInt>(0);
+    obj->value["val1"] = std::make_shared<JsonInt>(1);
+    obj->value["val2"] = std::make_shared<JsonInt>(2);
 
     obj = child0_2.get();
-    obj->operator[]("val1") = std::make_shared<JsonInt>(0);
-    obj->operator[]("val2") = std::make_shared<JsonInt>(1);
-    obj->operator[]("val3") = std::make_shared<JsonInt>(2);
+    obj->value["val1"] = std::make_shared<JsonInt>(0);
+    obj->value["val2"] = std::make_shared<JsonInt>(1);
+    obj->value["val3"] = std::make_shared<JsonInt>(2);
 
     obj = child1_1.get();
-    obj->operator[]("val2") = std::make_shared<JsonInt>(3);
-    obj->operator[]("val3") = std::make_shared<JsonInt>(4);
-    obj->operator[]("val4") = std::make_shared<JsonInt>(5);
+    obj->value["val2"] = std::make_shared<JsonInt>(3);
+    obj->value["val3"] = std::make_shared<JsonInt>(4);
+    obj->value["val4"] = std::make_shared<JsonInt>(5);
 
     obj = child1_2.get();
-    obj->operator[]("val5") = std::make_shared<JsonInt>(6);
-    obj->operator[]("val6") = std::make_shared<JsonInt>(7);
-    obj->operator[]("val7") = std::make_shared<JsonInt>(8);
+    obj->value["val5"] = std::make_shared<JsonInt>(6);
+    obj->value["val6"] = std::make_shared<JsonInt>(7);
+    obj->value["val7"] = std::make_shared<JsonInt>(8);
 
 
     std::stringstream str;
@@ -277,7 +277,7 @@ std::string testBsonExtract(){
     else if (result.front()->getType() != JSON_INTEGER) {
         retVal += "\n Could not extract child1/sub1/val7, invalid type";
     }
-    else if (((JsonInt*)result.front().get())->asInt != 8) {
+    else if (((JsonInt*)result.front().get())->value != 8) {
         retVal += "\n Could not extract child1/sub1/val7, invalid value";
     }
 
@@ -289,7 +289,7 @@ std::string testBsonExtract(){
     else if (result.front()->getType() != JSON_OBJECT) {
         retVal += "\n Could not extract child1/sub0, invalid type";
     }
-    else if (((JsonInt*)((JsonObject*)result.front().get())->operator []("val2").get())->asInt != 3) {
+    else if (((JsonInt*)((JsonObject*)result.front().get())->value["val2"].get())->value != 3) {
         retVal += "\n Could not extract child1/sub0, invalid value";
     }
 
@@ -301,10 +301,10 @@ std::string testBsonExtract(){
     else if (result.front()->getType() != JSON_INTEGER) {
         retVal += "\n Could not extract child0/*/val1, invalid type";
     }
-    else if (((JsonInt*)result.front().get())->asInt != 1) {
+    else if (((JsonInt*)result.front().get())->value != 1) {
         retVal += "\n Could not extract child0/*/val1, invalid value";
     }
-    else if (((JsonInt*)result.back().get())->asInt != 0) {
+    else if (((JsonInt*)result.back().get())->value != 0) {
         retVal += "\n Could not extract child0/*/val1, invalid value";
     }
 
@@ -325,10 +325,10 @@ std::string testBsonExtract(){
     else if (result.front()->getType() != JSON_INTEGER) {
         retVal += "\n Could not extract **/val1, invalid type";
     }
-    else if (((JsonInt*)result.front().get())->asInt != 1) {
+    else if (((JsonInt*)result.front().get())->value != 1) {
         retVal += "\n Could not extract **/val1, invalid value";
     }
-    else if (((JsonInt*)result.back().get())->asInt != 0) {
+    else if (((JsonInt*)result.back().get())->value != 0) {
         retVal += "\n Could not extract **/val1, invalid value";
     }
 
@@ -340,9 +340,11 @@ std::string testBsonExtract(){
     else if (result.front()->getType() != JSON_OBJECT) {
         retVal += "\n Could not extract child1/**, invalid type";
     }
-    else if (((JsonObject*)result.front().get())->size() != 3) {
+    else if (((JsonObject*)result.front().get())->value.size() != 3) {
         retVal += "\n Could not extract child1/**, invalid child size";
     }
+
+    return retVal;
 }
 
 

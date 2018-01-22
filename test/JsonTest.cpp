@@ -56,12 +56,12 @@ std::string doAutoJsonTest(){
         if (toString(val) != "null") retVal +=  std::string("Invalid JsonNull toString(), expected null got ") + toString(val) + "\n";
     } while (0);
 
-#define TEST(Val, value, asStr)\
+#define TEST(Val, Value, asStr)\
 do {\
-    Json_t val = toJson(value);\
+    Json_t val = toJson(Value);\
     Json##Val##_t ele = std::dynamic_pointer_cast<Json##Val>(val);\
     if (!ele) retVal +=  std::string("Allocated wrong type, expected Json" #Val " got ") + toString(val->getType()) + "\n";\
-    if (ele->as##Val != value) retVal +=  "Invalid value in Json" #Val "\n";\
+    if (ele->value != Value) retVal +=  "Invalid value in Json" #Val "\n";\
     if (toString(val) != asStr) retVal +=  std::string("Invalid Json" #Val " toString(), expected " asStr " got ") + toString(val) + "\n";\
 } while (0);
     TEST(Bool, true, "true");
@@ -121,23 +121,23 @@ std::string doSortTest(){
     JsonString_t str1 = std::make_shared<JsonString>("1");
     JsonArray_t arr0 = std::make_shared<JsonArray>();
     JsonArray_t arr1 = std::make_shared<JsonArray>();
-    arr1->push_back(std::make_shared<JsonInt>(0));
+    arr1->value.push_back(std::make_shared<JsonInt>(0));
     JsonArray_t arr2 = std::make_shared<JsonArray>();
-    arr2->push_back(std::make_shared<JsonInt>(0));
-    arr2->push_back(std::make_shared<JsonInt>(1));
+    arr2->value.push_back(std::make_shared<JsonInt>(0));
+    arr2->value.push_back(std::make_shared<JsonInt>(1));
     JsonArray_t arr3 = std::make_shared<JsonArray>();
-    arr3->push_back(std::make_shared<JsonInt>(1));
+    arr3->value.push_back(std::make_shared<JsonInt>(1));
     JsonObject_t obj0 = std::make_shared<JsonObject>();
     JsonObject_t obj1 = std::make_shared<JsonObject>();
-    obj1->operator []("0") = (std::make_shared<JsonInt>(0));
+    obj1->value["0"] = (std::make_shared<JsonInt>(0));
     JsonObject_t obj2 = std::make_shared<JsonObject>();
-    obj2->operator []("0") = (std::make_shared<JsonInt>(0));
-    obj2->operator []("1") = (std::make_shared<JsonInt>(1));
+    obj2->value["0"] = (std::make_shared<JsonInt>(0));
+    obj2->value["1"] = (std::make_shared<JsonInt>(1));
     JsonObject_t obj3 = std::make_shared<JsonObject>();
-    obj3->operator []("0") = (std::make_shared<JsonInt>(1));
+    obj3->value["0"] = (std::make_shared<JsonInt>(1));
     JsonBinary_t bin0 = std::make_shared<JsonBinary>();
-    JsonBinary_t bin1 = std::make_shared<JsonBinary>(std::make_shared<Binary>(sizeof(int32_t))); *((int32_t*)bin1->asBinary->data) = 1;
-    JsonBinary_t bin2 = std::make_shared<JsonBinary>(std::make_shared<Binary>(sizeof(int32_t))); *((int32_t*)bin2->asBinary->data) = 2;
+    JsonBinary_t bin1 = std::make_shared<JsonBinary>(std::make_shared<Binary>(sizeof(int32_t))); *((int32_t*)bin1->value->data) = 1;
+    JsonBinary_t bin2 = std::make_shared<JsonBinary>(std::make_shared<Binary>(sizeof(int32_t))); *((int32_t*)bin2->value->data) = 2;
 
     std::vector<Json_t> all = {
             nul, bf, bt, i0, i1, d0, d1, str0, str1, arr0, arr1, arr2, arr3, obj0, obj1, obj2, obj3, bin0, bin1, bin2
@@ -197,36 +197,36 @@ std::string doSearchTest(){
     JsonObject *obj;
 
     obj = root.get();
-    obj->operator[]("child0") = child0;
-    obj->operator[]("child1") = child1;
+    obj->value["child0"] = child0;
+    obj->value["child1"] = child1;
 
     obj = child0.get();
-    obj->operator[]("sub0") = child0_1;
-    obj->operator[]("sub1") = child0_2;
+    obj->value["sub0"] = child0_1;
+    obj->value["sub1"] = child0_2;
 
     obj = child1.get();
-    obj->operator[]("sub0") = child1_1;
-    obj->operator[]("sub1") = child1_2;
+    obj->value["sub0"] = child1_1;
+    obj->value["sub1"] = child1_2;
 
     obj = child0_1.get();
-    obj->operator[]("val0") = std::make_shared<JsonInt>(0);
-    obj->operator[]("val1") = std::make_shared<JsonInt>(1);
-    obj->operator[]("val2") = std::make_shared<JsonInt>(2);
+    obj->value["val0"] = std::make_shared<JsonInt>(0);
+    obj->value["val1"] = std::make_shared<JsonInt>(1);
+    obj->value["val2"] = std::make_shared<JsonInt>(2);
 
     obj = child0_2.get();
-    obj->operator[]("val1") = std::make_shared<JsonInt>(0);
-    obj->operator[]("val2") = std::make_shared<JsonInt>(1);
-    obj->operator[]("val3") = std::make_shared<JsonInt>(2);
+    obj->value["val1"] = std::make_shared<JsonInt>(0);
+    obj->value["val2"] = std::make_shared<JsonInt>(1);
+    obj->value["val3"] = std::make_shared<JsonInt>(2);
 
     obj = child1_1.get();
-    obj->operator[]("val2") = std::make_shared<JsonInt>(3);
-    obj->operator[]("val3") = std::make_shared<JsonInt>(4);
-    obj->operator[]("val4") = std::make_shared<JsonInt>(5);
+    obj->value["val2"] = std::make_shared<JsonInt>(3);
+    obj->value["val3"] = std::make_shared<JsonInt>(4);
+    obj->value["val4"] = std::make_shared<JsonInt>(5);
 
     obj = child1_2.get();
-    obj->operator[]("val5") = std::make_shared<JsonInt>(6);
-    obj->operator[]("val6") = std::make_shared<JsonInt>(7);
-    obj->operator[]("val7") = std::make_shared<JsonInt>(8);
+    obj->value["val5"] = std::make_shared<JsonInt>(6);
+    obj->value["val6"] = std::make_shared<JsonInt>(7);
+    obj->value["val7"] = std::make_shared<JsonInt>(8);
 
     std::vector<Json_t> result;
 
@@ -238,7 +238,7 @@ std::string doSearchTest(){
     else if (result.front()->getType() != JSON_INTEGER) {
         retVal += "\n Could not extract child1/sub1/val7, invalid type";
     }
-    else if (((JsonInt*)result.front().get())->asInt != 8) {
+    else if (((JsonInt*)result.front().get())->value != 8) {
         retVal += "\n Could not extract child1/sub1/val7, invalid value";
     }
 
@@ -249,7 +249,7 @@ std::string doSearchTest(){
     else if (result.front()->getType() != JSON_OBJECT) {
         retVal += "\n Could not extract child1/sub0, invalid type";
     }
-    else if (((JsonInt*)((JsonObject*)result.front().get())->operator []("val2").get())->asInt != 3) {
+    else if (((JsonInt*)((JsonObject*)result.front().get())->value["val2"].get())->value != 3) {
         retVal += "\n Could not extract child1/sub0, invalid value";
     }
 
@@ -260,10 +260,10 @@ std::string doSearchTest(){
     else if (result.front()->getType() != JSON_INTEGER) {
         retVal += "\n Could not extract child0/*/val1, invalid type";
     }
-    else if (((JsonInt*)result.front().get())->asInt != 1) {
+    else if (((JsonInt*)result.front().get())->value != 1) {
         retVal += "\n Could not extract child0/*/val1, invalid value";
     }
-    else if (((JsonInt*)result.back().get())->asInt != 0) {
+    else if (((JsonInt*)result.back().get())->value != 0) {
         retVal += "\n Could not extract child0/*/val1, invalid value";
     }
 
@@ -282,10 +282,10 @@ std::string doSearchTest(){
     else if (result.front()->getType() != JSON_INTEGER) {
         retVal += "\n Could not extract **/val1, invalid type";
     }
-    else if (((JsonInt*)result.front().get())->asInt != 1) {
+    else if (((JsonInt*)result.front().get())->value != 1) {
         retVal += "\n Could not extract **/val1, invalid value";
     }
-    else if (((JsonInt*)result.back().get())->asInt != 0) {
+    else if (((JsonInt*)result.back().get())->value != 0) {
         retVal += "\n Could not extract **/val1, invalid value";
     }
 
@@ -296,7 +296,7 @@ std::string doSearchTest(){
     else if (result.front()->getType() != JSON_OBJECT) {
         retVal += "\n Could not extract child1/**, invalid type";
     }
-    else if (((JsonObject*)result.front().get())->size() != 3) {
+    else if (((JsonObject*)result.front().get())->value.size() != 3) {
         retVal += "\n Could not extract child1/**, invalid size of child";
     }
 

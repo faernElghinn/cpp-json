@@ -66,9 +66,9 @@ static std::string test_throw_exep(const std::string& txt, DecodingOption opt = 
         Json_t obj = Json::read(&ss, opt, StreamFormat::JSON); \
         if (obj->getType() != type) \
             retVal += "\nCould not decode \"" txt "\" as " + toString(type) + ""; \
-        else if (std::dynamic_pointer_cast<Json##Val>(obj)->as##Val != expected) { \
+        else if (std::dynamic_pointer_cast<Json##Val>(obj)->value != expected) { \
             retVal += "\nInvalid value for \"" txt "\", expected "; \
-            retVal += toString(expected) + " got " + toString(std::dynamic_pointer_cast<Json##Val>(obj)->as##Val); \
+            retVal += toString(expected) + " got " + toString(std::dynamic_pointer_cast<Json##Val>(obj)->value); \
         }\
     } \
     catch (std::exception& e) { \
@@ -107,7 +107,7 @@ std::string testTxtToJson(){
         obj = Json::read(&ss, DecodingOption(), StreamFormat::JSON);
         if (obj->getType() != JSON_ARRAY)
             retVal += "\nCould not decode \"[1,2,3]\" as JSON_ARRAY";
-        else if (std::dynamic_pointer_cast<JsonArray>(obj)->size() != 3)
+        else if (std::dynamic_pointer_cast<JsonArray>(obj)->value.size() != 3)
             retVal += "\nInvalid number of value in array for \"[1,2,3]\"";
     }
     catch (std::exception& e) {
@@ -122,7 +122,7 @@ std::string testTxtToJson(){
         obj = Json::read(&ss, DecodingOption(), StreamFormat::JSON);
         if (obj->getType() != JSON_ARRAY)
             retVal += "\nCould not decode \" [  1,\t2 , 3 ]  \t\" as JSON_ARRAY";
-        else if (std::dynamic_pointer_cast<JsonArray>(obj)->size() != 3)
+        else if (std::dynamic_pointer_cast<JsonArray>(obj)->value.size() != 3)
             retVal += "\nInvalid number of value in array for \" [  1,\t2 , 3 ]  \t\"";
     }
     catch (std::exception& e) {
@@ -137,7 +137,7 @@ std::string testTxtToJson(){
         obj = Json::read(&ss, DF_ALLOW_COMMA_ERR, StreamFormat::JSON);
         if (obj->getType() != JSON_ARRAY)
             retVal += "\nCould not decode \"[1,2 3,]\" as JSON_ARRAY";
-        else if (std::dynamic_pointer_cast<JsonArray>(obj)->size() != 3)
+        else if (std::dynamic_pointer_cast<JsonArray>(obj)->value.size() != 3)
             retVal += "\nInvalid number of value in array for \"[1,2 3,]\"";
     }
     catch (std::exception& e) {
@@ -153,15 +153,15 @@ std::string testTxtToJson(){
             retVal += "\nCould not decode \"{\"key1\":1}\" as JSON_OBJECT";
         else {
             JsonObject_t tt = std::dynamic_pointer_cast<JsonObject>(obj);
-            if (tt->size() != 2)
+            if (tt->value.size() != 2)
                 retVal += "\nInvalid number of value in object for \"{\"key1\":1,\"key2\":3.1415}\"";
-            else if (tt->find("key1") == tt->end())
+            else if (tt->value.find("key1") == tt->value.end())
                 retVal += "\nCould not find key in \"{\"key1\":1,\"key2\":3.1415}\"";
-            else if (tt->find("key1")->second->getType() != JSON_INTEGER)
+            else if (tt->value.find("key1")->second->getType() != JSON_INTEGER)
                 retVal += "\nInvalid 1st value type in \"{\"key1\":1,\"key2\":3.1415}\"";
-            else if (tt->find("key2") == tt->end())
+            else if (tt->value.find("key2") == tt->value.end())
                 retVal += "\nCould not find key in \"{\"key1\":1,\"key2\":3.1415}\"";
-            else if (tt->find("key2")->second->getType() != JSON_DOUBLE)
+            else if (tt->value.find("key2")->second->getType() != JSON_DOUBLE)
                 retVal += "\nInvalid 2nd value type in \"{\"key1\":1,\"key2\":3.1415}\"";
         }
     }
@@ -178,15 +178,15 @@ std::string testTxtToJson(){
             retVal += "\nCould not decode \"{\"key1\":1}\" as JSON_OBJECT";
         else {
             JsonObject_t tt = std::dynamic_pointer_cast<JsonObject>(obj);
-            if (tt->size() != 2)
+            if (tt->value.size() != 2)
                 retVal += "\nInvalid number of value in object for \"{  \"key1\"1 \"key2\" :\t3.1415,}\"";
-            else if (tt->find("key1") == tt->end())
+            else if (tt->value.find("key1") == tt->value.end())
                 retVal += "\nCould not find key in \"{  \"key1\"1 \"key2\" :\t3.1415,}\"";
-            else if (tt->find("key1")->second->getType() != JSON_INTEGER)
+            else if (tt->value.find("key1")->second->getType() != JSON_INTEGER)
                 retVal += "\nInvalid value type in \"{  \"key1\"1 \"key2\" :\t3.1415,}\"";
-            else if (tt->find("key2") == tt->end())
+            else if (tt->value.find("key2") == tt->value.end())
                 retVal += "\nCould not find key in \"{  \"key1\"1 \"key2\" :\t3.1415,}\"";
-            else if (tt->find("key2")->second->getType() != JSON_DOUBLE)
+            else if (tt->value.find("key2")->second->getType() != JSON_DOUBLE)
                 retVal += "\nInvalid value type in \"{  \"key1\"1 \"key2\" :\t3.1415,}\"";
         }
     }
@@ -220,11 +220,11 @@ std::string testTxtToJson(){
             retVal += "\nCould not decode comment as JSON_OBJECT";
         else {
             JsonObject_t tt = std::dynamic_pointer_cast<JsonObject>(obj);
-            if (tt->size() != 1)
+            if (tt->value.size() != 1)
                 retVal += "\nInvalid number of value in object for comment";
-            else if (tt->find("key1") == tt->end())
+            else if (tt->value.find("key1") == tt->value.end())
                 retVal += "\nCould not find key in comment";
-            else if (tt->find("key1")->second->getType() != JSON_INTEGER)
+            else if (tt->value.find("key1")->second->getType() != JSON_INTEGER)
                 retVal += "\nInvalid value type in comment";
         }
     }
@@ -243,7 +243,7 @@ std::string testTxtToJson(){
             retVal += "\nCould not decode \"" + ExpectWS + "\" as JSON_OBJECT";
         else {
             JsonObject* tt = std::dynamic_pointer_cast<JsonObject>(obj).get();
-            if (tt->size() != 8)
+            if (tt->value.size() != 8)
                 retVal += "\nInvalid number of element reading " + ExpectWS + "";
         }
     }

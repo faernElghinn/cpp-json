@@ -56,14 +56,17 @@ static std::vector<Json_t> getChildInternal (const Json_t& ele, size_t deepness,
     if (deepness > parts.size()){
         retVal.push_back(ele);
     }
+    else if (!ele) {
+        return retVal;
+    }
     else if (ele->getType() == json::JSON_ARRAY) {
-        for (auto ite : *std::dynamic_pointer_cast<json::JsonArray>(ele).get()){
+        for (auto ite : ele->toArray()->value){
             auto subRet = getChildInternal(ele, deepness, parts);
             retVal.insert(subRet.begin(), subRet.end(), retVal.end());
         }
     }
     else if (ele->getType() == json::JSON_OBJECT) {
-        for (auto ite : *std::dynamic_pointer_cast<json::JsonObject>(ele).get()){
+        for (auto ite : ele->toObject()->value){
             bool match;
             bool inc = true;
 
@@ -129,6 +132,19 @@ std::vector<Json_t> Json::extract(std::istream* input, DecodingOption flags, Str
 }
 
 
+#define TO(Type, TYPE) \
+Json##Type* Json::to##Type() { assert(getType() == TYPE); return static_cast<Json##Type*>(this); }\
+const Json##Type* Json::to##Type() const { assert(getType() == TYPE); return static_cast<const Json##Type*>(this); }
+TO(Bool  , JSON_BOOL);
+TO(Int   , JSON_INTEGER);
+TO(Double, JSON_DOUBLE);
+TO(String, JSON_STRING);
+TO(Array , JSON_ARRAY);
+TO(Object, JSON_OBJECT);
+TO(Binary, JSON_BINARY);
+TO(UUID  , JSON_UUID);
+#undef TO
+
 
 JsonType JsonNull::getType() const {
     return JSON_NULL;
@@ -139,24 +155,24 @@ Json_t JsonNull::deep_copy() const{
 }
 
 
-JsonBool::JsonBool() : Json(), asBool(false) {}
-JsonBool::JsonBool(bool val): Json(), asBool(val) {}
+JsonBool::JsonBool() : Json(), value(false) {}
+JsonBool::JsonBool(bool val): Json(), value(val) {}
 JsonType JsonBool::getType() const {
     return JSON_BOOL;
 }
 int JsonBool::cmp (const Json* right) const {
     int retVal = Json::cmp(right);
     if (retVal != 0) return retVal;
-    if (asBool ^ ((JsonBool*) right)->asBool) return asBool ? -1 : 1;
+    if (value ^ ((JsonBool*) right)->value) return value ? -1 : 1;
     return 0;
 }
 Json_t JsonBool::deep_copy() const{
-    return std::make_shared<JsonBool>(asBool);
+    return std::make_shared<JsonBool>(value);
 }
 
 
-JsonInt::JsonInt() : Json(), asInt(0) {}
-JsonInt::JsonInt(long int val): Json(), asInt(val) {}
+JsonInt::JsonInt() : Json(), value(0) {}
+JsonInt::JsonInt(long int val): Json(), value(val) {}
 
 JsonType JsonInt::getType() const {
     return JSON_INTEGER;
@@ -164,15 +180,15 @@ JsonType JsonInt::getType() const {
 int JsonInt::cmp (const Json* right) const {
     int retVal = Json::cmp(right);
     if (retVal != 0) return retVal;
-    if (asInt < ((JsonInt*) right)->asInt) return -1;
-    return asInt != ((JsonInt*) right)->asInt ;
+    if (value < ((JsonInt*) right)->value) return -1;
+    return value != ((JsonInt*) right)->value ;
 }
 Json_t JsonInt::deep_copy() const{
-    return std::make_shared<JsonInt>(asInt);
+    return std::make_shared<JsonInt>(value);
 }
 
-JsonDouble::JsonDouble() : Json(), asDouble(0) {}
-JsonDouble::JsonDouble(double val): Json(), asDouble(val) {}
+JsonDouble::JsonDouble() : Json(), value(0) {}
+JsonDouble::JsonDouble(double val): Json(), value(val) {}
 
 JsonType JsonDouble::getType() const {
     return JSON_DOUBLE;
@@ -180,16 +196,16 @@ JsonType JsonDouble::getType() const {
 int JsonDouble::cmp (const Json* right) const {
     int retVal = Json::cmp(right);
     if (retVal != 0) return retVal;
-    if (asDouble < ((JsonDouble*) right)->asDouble) return -1;
-    return asDouble != ((JsonDouble*) right)->asDouble ;
+    if (value < ((JsonDouble*) right)->value) return -1;
+    return value != ((JsonDouble*) right)->value ;
 }
 Json_t JsonDouble::deep_copy() const{
-    return std::make_shared<JsonDouble>(asDouble);
+    return std::make_shared<JsonDouble>(value);
 }
 
 
 JsonString::JsonString() : Json() {}
-JsonString::JsonString(const std::string& val): Json(), asString(val) {}
+JsonString::JsonString(const std::string& val): Json(), value(val) {}
 
 JsonType JsonString::getType() const {
     return JSON_STRING;
@@ -197,10 +213,10 @@ JsonType JsonString::getType() const {
 int JsonString::cmp (const Json* right) const {
     int retVal = Json::cmp(right);
     if (retVal != 0) return retVal;
-    return asString.compare(((JsonString*) right)->asString);
+    return value.compare(((JsonString*) right)->value);
 }
 Json_t JsonString::deep_copy() const{
-    return std::make_shared<JsonString>(asString);
+    return std::make_shared<JsonString>(value);
 }
 
 JsonType JsonArray::getType() const {
@@ -211,11 +227,11 @@ int JsonArray::cmp (const Json* right) const {
     if (retVal != 0) return retVal;
 
     JsonArray* oth = (JsonArray*) right;
-    if (size() != oth->size())
-        return size() < oth->size() ? -1 : 1;
+    if (value.size() != oth->value.size())
+        return value.size() < oth->value.size() ? -1 : 1;
 
-    for (int i = 0; i < size(); i++) {
-        retVal = at(i)->cmp(oth->at(i).get());
+    for (int i = 0; i < value.size(); i++) {
+        retVal = value.at(i)->cmp(oth->value.at(i).get());
         if (retVal != 0) return retVal;
     }
 
@@ -223,8 +239,8 @@ int JsonArray::cmp (const Json* right) const {
 }
 Json_t JsonArray::deep_copy() const{
     JsonArray_t array = std::make_shared<JsonArray>();
-    for (auto ite : *this)
-        array->push_back(ite->deep_copy());
+    for (auto ite : value)
+        array->value.push_back(ite->deep_copy());
     return array;
 }
 
@@ -236,12 +252,12 @@ int JsonObject::cmp (const Json* right) const {
     if (retVal != 0) return retVal;
 
     JsonObject* oth = (JsonObject*) right;
-    if (size() != oth->size())
-        return size() < oth->size() ? -1 : 1;
+    if (value.size() != oth->value.size())
+        return value.size() < oth->value.size() ? -1 : 1;
 
-    auto ite1 = begin();
-    auto ite2 = oth->begin();
-    for ( ; ite1 != end(), ite2 != oth->end(); ++ite1, ++ite2) {
+    auto ite1 = value.begin();
+    auto ite2 = oth->value.begin();
+    for ( ; ite1 != value.end(), ite2 != oth->value.end(); ++ite1, ++ite2) {
         // If both name differ.
         int nameCmp = ite1->first.compare(ite2->first);
         if (nameCmp != 0)
@@ -255,8 +271,8 @@ int JsonObject::cmp (const Json* right) const {
 }
 Json_t JsonObject::deep_copy() const{
     JsonObject_t array = std::make_shared<JsonObject>();
-    for (auto ite : *this)
-        array->operator [](ite.first) = ite.second->deep_copy();
+    for (auto ite : value)
+        array->value[ite.first] = ite.second->deep_copy();
     return array;
 }
 
@@ -304,21 +320,21 @@ int JsonBinary::cmp (const Json* right) const {
     if (retVal != 0) return retVal;
 
     JsonBinary* oth = (JsonBinary*) right;
-    if (asBinary.get() == oth->asBinary.get()) return 0;
-    if (!asBinary) return -1;
-    if (!oth->asBinary) return 1;
-    if (asBinary->size < oth->asBinary->size) return -1;
-    if (asBinary->size > oth->asBinary->size) return 1;
-    return memcmp(asBinary->data, oth->asBinary->data, asBinary->size);
+    if (value.get() == oth->value.get()) return 0;
+    if (!value) return -1;
+    if (!oth->value) return 1;
+    if (value->size < oth->value->size) return -1;
+    if (value->size > oth->value->size) return 1;
+    return memcmp(value->data, oth->value->data, value->size);
 }
 Json_t JsonBinary::deep_copy() const{
     JsonBinary_t bin = std::make_shared<JsonBinary>();
-    bin->asBinary = std::make_shared<Binary>(asBinary->size);
-    memcpy(bin->asBinary->data, asBinary->data, asBinary->size);
+    bin->value = std::make_shared<Binary>(value->size);
+    memcpy(bin->value->data, value->data, value->size);
     return bin;
 }
 JsonBinary::JsonBinary() {}
-JsonBinary::JsonBinary(Binary_t binary) {asBinary = binary;}
+JsonBinary::JsonBinary(Binary_t binary) {value = binary;}
 
 
 JsonType JsonUUID::getType() const {
@@ -329,120 +345,31 @@ int JsonUUID::cmp (const Json* right) const {
     if (retVal != 0) return retVal;
 
     JsonUUID* oth = (JsonUUID*) right;
-    return asUUID.cmp(oth->asUUID);
+    return value.cmp(oth->value);
 }
 Json_t JsonUUID::deep_copy() const{
-    return std::make_shared<JsonUUID>(asUUID);
+    return std::make_shared<JsonUUID>(value);
 }
 JsonUUID::JsonUUID() {}
-JsonUUID::JsonUUID(const elladan::UUID& uid) : asUUID(uid) {}
+JsonUUID::JsonUUID(const elladan::UUID& uid) : value(uid) {}
 
 void fromJson_imp (Json_t ele, std::string& out) {
     if (ele->getType() != JSON_STRING) throw Exception("Invalid format, expected JSON_STRING" );
-    out = std::dynamic_pointer_cast<JsonString>(ele)->asString;
+    out = std::dynamic_pointer_cast<JsonString>(ele)->value;
 }
 void fromJson_imp (Json_t ele, json::Json_t& out) {
     out = ele;
 }
 void fromJson_imp (Json_t ele, Binary_t& out) {
-    if (ele->getType() == JSON_BINARY)      out = std::dynamic_pointer_cast<JsonBinary>(ele)->asBinary;
-    else if (ele->getType() == JSON_STRING) out = std::make_shared<Binary>(std::dynamic_pointer_cast<JsonString>(ele)->asString);
+    if (ele->getType() == JSON_BINARY)      out = std::dynamic_pointer_cast<JsonBinary>(ele)->value;
+    else if (ele->getType() == JSON_STRING) out = std::make_shared<Binary>(std::dynamic_pointer_cast<JsonString>(ele)->value);
     else                                    throw Exception("Invalid format, expeced JSON_UUID");
 }
 void fromJson_imp (Json_t ele, elladan::UUID& out) {
-    if (ele->getType() == JSON_UUID)        out = std::dynamic_pointer_cast<JsonUUID>(ele)->asUUID;
-    else if (ele->getType() == JSON_STRING) out = elladan::UUID::fromString(std::dynamic_pointer_cast<JsonString>(ele)->asString);
+    if (ele->getType() == JSON_UUID)        out = std::dynamic_pointer_cast<JsonUUID>(ele)->value;
+    else if (ele->getType() == JSON_STRING) out = elladan::UUID::fromString(std::dynamic_pointer_cast<JsonString>(ele)->value);
     else                                    throw Exception("Invalid format, expeced JSON_UUID");
 }
-
-
-//template< >Json_t toJson<bool> (bool val){
-//    return std::make_shared<json::JsonBool>(val);
-//}
-//template< >Json_t toJson<float> (float val){
-//    return std::make_shared<json::JsonDouble>(val);
-//}
-//template< >Json_t toJson<double> (double val){
-//    return std::make_shared<json::JsonDouble>(val);
-//}
-//template< >Json_t toJson<const std::string&> (const std::string& val){
-//    return std::make_shared<json::JsonString>(val);
-//}
-//template< >Json_t toJson<std::string&> (std::string& val){
-//    return std::make_shared<json::JsonString>(val);
-//}
-//template< >Json_t toJson<const char*> (const char* val){
-//    return std::make_shared<json::JsonString>(val);
-//}
-//template< >Json_t toJson<char*> (char* val){
-//    return std::make_shared<json::JsonString>(val);
-//}
-//template< >Json_t toJson<std::string> (std::string val){
-//    return std::make_shared<json::JsonString>(val);
-//}
-//template< >Json_t toJson<int32_t> (int32_t val){
-//    return std::make_shared<json::JsonInt>(val);
-//}
-//template< >Json_t toJson<uint32_t> (uint32_t val){
-//    return std::make_shared<json::JsonInt>(val);
-//}
-//template< >Json_t toJson<int64_t> (int64_t val){
-//    return std::make_shared<json::JsonInt>(val);
-//}
-//template< > Json_t toJson<uint64_t> (uint64_t val){
-//    return std::make_shared<json::JsonInt>(val);
-//}
-//template< >Json_t toJson<json::Json_t> (json::Json_t val){
-//    return val;
-//}
-//template< >Json_t toJson<Binary_t> (Binary_t val){
-//    return std::make_shared<JsonBinary>(val);
-//}
-//template< >Json_t toJson<const elladan::UUID&> (const elladan::UUID& val){
-//    return std::make_shared<JsonUUID>(val);
-//}
-//template< >Json_t toJson<elladan::UUID> (elladan::UUID val){
-//    return std::make_shared<JsonUUID>(val);
-//}
-//
-//#define FromJson(Type, JSON_TYPE, Value) \
-//template<> Type fromJson<Type> (Json_t ele){\
-//    if (ele->getType() != JSON_TYPE) throw Exception("Invalid format, expeced " #JSON_TYPE);\
-//    return std::dynamic_pointer_cast<Json##Value>(ele)->as##Value;\
-//}
-//FromJson(bool, JSON_BOOL, Bool);
-//FromJson(int64_t, JSON_INTEGER, Int);
-//FromJson(int32_t, JSON_INTEGER, Int);
-//FromJson(int16_t, JSON_INTEGER, Int);
-//FromJson(int8_t, JSON_INTEGER, Int);
-//FromJson(uint64_t, JSON_INTEGER, Int);
-//FromJson(uint32_t, JSON_INTEGER, Int);
-//FromJson(uint16_t, JSON_INTEGER, Int);
-//FromJson(uint8_t, JSON_INTEGER, Int);
-//FromJson(double, JSON_DOUBLE, Double);
-//FromJson(float, JSON_DOUBLE, Double);
-//FromJson(std::string, JSON_STRING, String);
-//
-//template<> Json_t fromJson<Json_t> (Json_t value){
-//    return value;
-//}
-//template<> elladan::UUID fromJson<elladan::UUID> (Json_t ele){
-//   if (ele->getType() == JSON_UUID)
-//     return std::dynamic_pointer_cast<JsonUUID>(ele)->asUUID;
-//   else if (ele->getType() == JSON_STRING)
-//     return elladan::UUID::fromString(std::dynamic_pointer_cast<JsonString>(ele)->asString);
-//   else
-//       throw Exception("Invalid format, expeced JSON_UUID");
-//}
-//template<> Binary_t fromJson<Binary_t> (Json_t ele){
-//   if (ele->getType() == JSON_BINARY)
-//     return std::dynamic_pointer_cast<JsonBinary>(ele)->asBinary;
-//   else if (ele->getType() == JSON_STRING)
-//       return std::make_shared<Binary>(std::dynamic_pointer_cast<JsonString>(ele)->asString);
-//   else
-//       throw Exception("Invalid format, expeced JSON_UUID");
-//}
-
 
 } } // namespace elladan::json
 
