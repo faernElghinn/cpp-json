@@ -77,20 +77,20 @@ std::string testJsonToTxt(){
     if (str != "\"FFFFFFFFFFFFFFFF\"") retVal += "\nCould not stringify JsonBinary, expected \"FFFFFFFFFFFFFFFF\", got " + str + "";
 
     JsonObject_t head = std::make_shared<JsonObject>();
-    head->operator []("null") = std::make_shared<JsonNull>();
-    head->operator []("bool") = toJson(true);
-    head->operator []("int") = toJson(0);
-    head->operator []("double") = toJson(3.1415);
-    head->operator []("string") = toJson("testing how this work");
-    head->operator []("arr") = std::make_shared<JsonArray>();
-    head->operator []("obj") = std::make_shared<JsonObject>();
+    head->value["null"] = std::make_shared<JsonNull>();
+    head->value["bool"] = toJson(true);
+    head->value["int"] = toJson(0);
+    head->value["double"] = toJson(3.1415);
+    head->value["string"] = toJson("testing how this work");
+    head->value["arr"] = std::make_shared<JsonArray>();
+    head->value["obj"] = std::make_shared<JsonObject>();
 
     JsonArray_t arr =  std::make_shared<JsonArray>();
-    head->operator []("fill_arr") = arr;
-    arr->push_back(toJson(0));
-    arr->push_back(toJson(1));
-    arr->push_back(toJson(2));
-    arr->push_back(toJson(3));
+    head->value["fill_arr"] = arr;
+    arr->value.push_back(toJson(0));
+    arr->value.push_back(toJson(1));
+    arr->value.push_back(toJson(2));
+    arr->value.push_back(toJson(3));
 
     str = toString(head);
     if (str != Expect )

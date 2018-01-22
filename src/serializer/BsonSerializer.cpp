@@ -154,56 +154,56 @@ void BsonSerializer::writeBson(BOStream& out, Json* ele){
              break;
 
          case JsonType::JSON_BOOL:
-             out << (char) ((JsonBool*)ele)->asBool;
+             out << (char) ((JsonBool*)ele)->value;
              break;
 
          case JsonType::JSON_INTEGER:
-             out << ((JsonInt*)ele)->asInt;
+             out << ((JsonInt*)ele)->value;
              break;
 
          case JsonType::JSON_DOUBLE:
-             out << ((JsonDouble*)ele)->asDouble;
+             out << ((JsonDouble*)ele)->value;
              break;
 
          case JsonType::JSON_STRING:
-             out << (uint32_t) ((JsonString*)ele)->asString.size() + 1; // for the DOC_END char.
-             out << ((JsonString*)ele)->asString;
+             out << (uint32_t) ((JsonString*)ele)->value.size() + 1; // for the DOC_END char.
+             out << ((JsonString*)ele)->value;
              break;
 
          case JsonType::JSON_ARRAY:
          {
              std::map<std::string, Json_t> eleList;
              int i = 0;
-             for (Json_t ite : *(((JsonArray*)ele)))
+             for (Json_t ite : static_cast<JsonArray*>(ele)->value)
                  eleList[std::to_string(i++)] = ite;
 
              writeDoc(out, eleList);
          } break;
 
          case JsonType::JSON_OBJECT:
-             writeDoc(out, *(((JsonObject*)ele)));
+             writeDoc(out, static_cast<JsonObject*>(ele)->value);
              break;
 
          case JsonType::JSON_BINARY:
          {
              JsonBinary* bin = ((JsonBinary*)ele);
-             if (!bin->asBinary) {
+             if (!bin->value) {
                  out << (uint32_t)0;
                  out << (char) 0x02;
              }
              else {
-                 out << (uint32_t)bin->asBinary->size;
+                 out << (uint32_t)bin->value->size;
                  out << (char) 0x02;
-                 out.write(bin->asBinary->data, bin->asBinary->size);
+                 out.write(bin->value->data, bin->value->size);
              }
          } break;
 
          case JsonType::JSON_UUID:
          {
              JsonUUID* uuid = ((JsonUUID*)ele);
-             out << (uint32_t)uuid->asUUID.getSize();
+             out << (uint32_t)uuid->value.getSize();
              out << (char) 0x04;
-             out.write(uuid->asUUID.getRaw(), uuid->asUUID.getSize());
+             out.write(uuid->value.getRaw(), uuid->value.getSize());
          } break;
 
          default:
@@ -285,7 +285,7 @@ Json_t BsonSerializer::readBson(BIStream& in, char type){
             while (type != EOF && type != DOC_END){
             	std::string name;
                 readName(in, name);
-                obj->operator [](name) = readBson(in, type);
+                obj->value[name] = readBson(in, type);
                 in >> type;
             }
 
@@ -303,7 +303,7 @@ Json_t BsonSerializer::readBson(BIStream& in, char type){
             while (type != EOF && type != DOC_END){
             	std::string name;
                 readName(in, name);
-                obj->push_back(readBson(in, type));
+                obj->value.push_back(readBson(in, type));
                 in >> type;
             }
 
@@ -320,7 +320,7 @@ Json_t BsonSerializer::readBson(BIStream& in, char type){
             	curChar = std::min(size, (uint32_t)256);
             	readRaw(in, val, size);
             	val[size] = 0;
-            	obj->asString += val;
+            	obj->value += val;
             	size -= curChar;
             }
             if (val[curChar-1] != 0)
@@ -365,10 +365,10 @@ Json_t BsonSerializer::readBson(BIStream& in, char type){
 
                 case 0x04: {
                     JsonUUID_t uuid = std::make_shared<JsonUUID>();
-                    if (size != uuid->asUUID.getSize())
+                    if (size != uuid->value.getSize())
                         in.throwException("Expected UUID, but size is wrong");
 
-                    readRaw(in, (char*)uuid->asUUID.getRaw(), size);
+                    readRaw(in, (char*)uuid->value.getRaw(), size);
                     return uuid;
                 } break;
 

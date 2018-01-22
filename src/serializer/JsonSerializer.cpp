@@ -164,36 +164,36 @@ void JsonSerializer::writeJson(SOStream& out, Json* ele, EncodingOption flag, in
             break;
 
         case JsonType::JSON_BOOL:
-            out << (((JsonBool*) ele)->asBool ? "true" : "false");
+            out << (((JsonBool*) ele)->value ? "true" : "false");
             break;
 
         case JsonType::JSON_INTEGER:
-            out << std::to_string(((JsonInt*) ele)->asInt);
+            out << std::to_string(((JsonInt*) ele)->value);
             break;
 
         case JsonType::JSON_DOUBLE: {
             char d[64];
-            snprintf(d, 63, "%#f", ((JsonDouble*) ele)->asDouble);
+            snprintf(d, 63, "%#f", ((JsonDouble*) ele)->value);
             out << std::string(d);
         } break;
 
         case JsonType::JSON_STRING:
-            out << stringToJson(((JsonString*) ele)->asString, flag);
+            out << stringToJson(((JsonString*) ele)->value, flag);
             break;
 
         case JsonType::JSON_UUID:
-            out << stringToJson(((JsonUUID*) ele)->asUUID.toString(), flag);
+            out << stringToJson(((JsonUUID*) ele)->value.toString(), flag);
             break;
 
         case JsonType::JSON_BINARY:
-            out << stringToJson(((JsonBinary*) ele)->asBinary->toHex(), flag);
+            out << stringToJson(((JsonBinary*) ele)->value->toHex(), flag);
             break;
 
         case JsonType::JSON_ARRAY: {
             bool first = true;
             out << "[";
             depth++;
-            for (auto ite : *((JsonArray*) ele)) {
+            for (auto ite : static_cast<JsonArray*>(ele)->value) {
                 if (!first)
                     out << ",";
                 first = false;
@@ -209,7 +209,7 @@ void JsonSerializer::writeJson(SOStream& out, Json* ele, EncodingOption flag, in
             bool first = true;
             out << "{";
             depth++;
-            for (auto ite : *((JsonObject*) ele)) {
+            for (auto ite : static_cast<JsonObject*>(ele)->value) {
                 if (!first)
                     out << ",";
                 first = false;
@@ -424,7 +424,7 @@ std::string JsonSerializer::jsonToString(SIStream& in) {
             case '\0':
                 if (!in.flags.test(DecodingFlags::DF_ALLOW_NULL))
                     in.throwErr("Found null value in string");
-                // Fall-through
+                    /* no break */
             default:
                 retVal.push_back(letter);
                 break;
@@ -449,7 +449,7 @@ Json_t JsonSerializer::readJson(SIStream& in, char cur) {
             if (!key)
                 startOFLine.throwErr("Missing key");
 
-            if (in.flags.test(DecodingFlags::DF_REJECT_DUPLICATE) && obj->count(key->asString))
+            if (in.flags.test(DecodingFlags::DF_REJECT_DUPLICATE) && obj->value.count(key->value))
                 in.throwErr("Duplicate value");
 
             // Get ":"
@@ -463,7 +463,7 @@ Json_t JsonSerializer::readJson(SIStream& in, char cur) {
             Json_t child = readJson(in, cur);
             if (!child)
                 in.throwErr("File ended before getting the value");
-            obj->operator [](key->asString) = child;
+            obj->value[key->value] = child;
 
             // Check if there is are remaining values,
             in("looking for element delimiter \',\' or closing bracket \'}\'") >> cur;
@@ -486,7 +486,7 @@ Json_t JsonSerializer::readJson(SIStream& in, char cur) {
             Json_t child = readJson(in, cur);
             if (!child)
                 in.throwErr("File ended before getting the value");
-            obj->push_back(child);
+            obj->value.push_back(child);
 
             // Check if there is are remaining values,
             in("looking for element delimiter \',\' or closing bracket \']\'") >> cur;

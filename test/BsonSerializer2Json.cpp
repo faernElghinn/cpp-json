@@ -104,7 +104,7 @@ std::string printAsHex(const std::string& str){
 \
 std::stringstream bson;\
 JsonObject_t obj = std::make_shared<JsonObject>();\
-obj->operator []("1") = std::make_shared<Type>();\
+obj->value["1"] = std::make_shared<Type>();\
 assign;\
 obj->write(&bson, EncodingOption(), StreamFormat::BSON);\
 if (bson.str().size() != sizeof (Value) || memcmp(bson.str().c_str(), Value, sizeof(Value)) != 0){\
@@ -117,25 +117,25 @@ std::string testTxtToBson(){
     std::string retVal;
 
     DoTestAndCmp(BsonNull,   JsonNull,   );
-    DoTestAndCmp(BsonFalse,  JsonBool,   ((JsonBool*)obj->operator []("1").get())->asBool = false);
-    DoTestAndCmp(BsonTrue,   JsonBool,   ((JsonBool*)obj->operator []("1").get())->asBool = true);
-    DoTestAndCmp(BsonIntM1,  JsonInt,    ((JsonInt*)obj->operator []("1").get())->asInt = -1);
-    DoTestAndCmp(BsonInt,    JsonInt,    ((JsonInt*)obj->operator []("1").get())->asInt = 0x0807060504030201);
-    DoTestAndCmp(BsonDouble, JsonDouble, ((JsonDouble*)obj->operator []("1").get())->asDouble = 1.);
-    DoTestAndCmp(BsonString, JsonString, ((JsonString*)obj->operator []("1").get())->asString = "TEST");
+    DoTestAndCmp(BsonFalse,  JsonBool,   obj->value["1"]->toBool()->value = false);
+    DoTestAndCmp(BsonTrue,   JsonBool,   obj->value["1"]->toBool()->value = true);
+    DoTestAndCmp(BsonIntM1,  JsonInt,    obj->value["1"]->toInt()->value = -1);
+    DoTestAndCmp(BsonInt,    JsonInt,    obj->value["1"]->toInt()->value = 0x0807060504030201);
+    DoTestAndCmp(BsonDouble, JsonDouble, obj->value["1"]->toDouble()->value = 1.);
+    DoTestAndCmp(BsonString, JsonString, obj->value["1"]->toString()->value = "TEST");
 
-    DoTestAndCmp(BsonBinary, JsonBinary, ((JsonBinary*)obj->operator []("1").get())->asBinary = std::make_shared<Binary>(sizeof(uint32_t)); *((uint32_t*)((JsonBinary*)obj->operator []("1").get())->asBinary->data) = 0x04030201);
+    DoTestAndCmp(BsonBinary, JsonBinary, ((JsonBinary*)obj->value["1"].get())->value = std::make_shared<Binary>(sizeof(uint32_t)); *((uint32_t*)((JsonBinary*)obj->value["1"].get())->value->data) = 0x04030201);
 
     DoTestAndCmp(BsonArr, JsonArray,
-            ((JsonArray*)obj->operator []("1").get())->push_back(std::make_shared<JsonBool>(false));
-            ((JsonArray*)obj->operator []("1").get())->push_back(std::make_shared<JsonBool>(true));
-            ((JsonArray*)obj->operator []("1").get())->push_back(std::make_shared<JsonBool>(false))
+            obj->value["1"]->toArray()->value.push_back(std::make_shared<JsonBool>(false));
+            obj->value["1"]->toArray()->value.push_back(std::make_shared<JsonBool>(true));
+            obj->value["1"]->toArray()->value.push_back(std::make_shared<JsonBool>(false))
     );
 
     DoTestAndCmp(BsonObject, JsonObject,
-            ((JsonObject*)obj->operator []("1").get())->operator [] ("Test1") = std::make_shared<JsonBool>(false);
-            ((JsonObject*)obj->operator []("1").get())->operator [] ("Test2") = std::make_shared<JsonBool>(true);
-            ((JsonObject*)obj->operator []("1").get())->operator [] ("Test3") = std::make_shared<JsonBool>(false)
+            (obj->value["1"]->toObject())->value["Test1"] = std::make_shared<JsonBool>(false);
+            (obj->value["1"]->toObject())->value["Test2"] = std::make_shared<JsonBool>(true);
+            (obj->value["1"]->toObject())->value["Test3"] = std::make_shared<JsonBool>(false)
     );
 
     return retVal;
