@@ -16,6 +16,8 @@
 
 #undef NULL
 
+using std::to_string;
+
 // Test if we can instanciate our object.
 std::string doConstructionTest(){
     std::string retVal;
@@ -48,21 +50,21 @@ std::string doAutoJsonTest(){
 
     do {\
         Json_t val = std::make_shared<Json>();
-        if (toString(val) != "none") retVal += std::string("Invalid JsonNone toString(), expected none got ") + toString(val) + "\n";
+        if (to_string(val) != "none") retVal += std::string("Invalid JsonNone to_string(), expected none got ") + to_string(val) + "\n";
     } while (0);
 
     do {\
         Json_t val = std::make_shared<JsonNull>();\
-        if (toString(val) != "null") retVal +=  std::string("Invalid JsonNull toString(), expected null got ") + toString(val) + "\n";
+        if (to_string(val) != "null") retVal +=  std::string("Invalid JsonNull to_string(), expected null got ") + to_string(val) + "\n";
     } while (0);
 
 #define TEST(Val, Value, asStr)\
 do {\
     Json_t val = toJson(Value);\
     Json##Val##_t ele = std::dynamic_pointer_cast<Json##Val>(val);\
-    if (!ele) retVal +=  std::string("Allocated wrong type, expected Json" #Val " got ") + toString(val->getType()) + "\n";\
+    if (!ele) retVal +=  std::string("Allocated wrong type, expected Json" #Val " got ") + to_string(val->getType()) + "\n";\
     if (ele->value != Value) retVal +=  "Invalid value in Json" #Val "\n";\
-    if (toString(val) != asStr) retVal +=  std::string("Invalid Json" #Val " toString(), expected " asStr " got ") + toString(val) + "\n";\
+    if (to_string(val) != asStr) retVal +=  std::string("Invalid Json" #Val " to_string(), expected " asStr " got ") + to_string(val) + "\n";\
 } while (0);
     TEST(Bool, true, "true");
     TEST(Int, 2, "2");
@@ -74,21 +76,21 @@ do {\
         Json_t val = std::make_shared<JsonArray>();
         JsonArray_t ele = std::dynamic_pointer_cast<JsonArray>(val);
         if (!ele) retVal +=  "Allocated wrong type, expected JsonArray\n";
-        if (toString(val) != "[]") retVal +=  std::string("Invalid JsonArray toString(), expected [] got ") + toString(val) + "\n";
+        if (to_string(val) != "[]") retVal +=  std::string("Invalid JsonArray to_string(), expected [] got ") + to_string(val) + "\n";
     } while (0);
 
     do {\
         Json_t val = std::make_shared<JsonObject>();
         JsonObject_t ele = std::dynamic_pointer_cast<JsonObject>(val);
         if (!ele) retVal +=  "Allocated wrong type, expected JsonObject\n" ;
-        if (toString(val) != "{}") retVal +=  std::string("Invalid JsonObject toString(), expected {} got ") + toString(val) + "\n";
+        if (to_string(val) != "{}") retVal +=  std::string("Invalid JsonObject to_string(), expected {} got ") + to_string(val) + "\n";
     } while (0);
 
 #define TEST(val, Type)\
 try {\
     auto res = fromJson<Type>(toJson(val)); \
  if (res != val) \
-    retVal +=  std::string("Invalid Json" #Type " to bool, got ") + toString(res) + "\n"; \
+    retVal +=  std::string("Invalid Json" #Type " to bool, got ") + to_string(res) + "\n"; \
 } catch (std::exception& e) {\
     retVal +=  std::string("Invalid fromJson with Json" #Type ", got exception\n");\
 }
@@ -98,9 +100,8 @@ try {\
     TEST("test", std::string);
     UUID uid = UUID::generateUUID();
     TEST(uid, UUID);
-
-
-    // FIXME: binary and new type.
+    Binary_t bin = std::make_shared<Binary>("ABCDEFG");
+    TEST(bin, Binary_t);
 #undef TEST
 
     return retVal;
@@ -151,7 +152,7 @@ std::string doSortTest(){
     {
         if (sset.count(ite) != 0) {
             retVal+= "\n Element mismatch, ";
-            retVal+= toString(ite->getType());
+            retVal+= to_string(ite->getType());
             retVal+= " already present in stream";
             continue;
         }
@@ -159,7 +160,7 @@ std::string doSortTest(){
         sset.insert(ite);
         if (sset.size() != total){
             retVal+= "\n Failed to insert element ";
-            retVal+= toString(ite->getType());
+            retVal+= to_string(ite->getType());
             continue;
         }
         total++;
@@ -172,15 +173,27 @@ std::string doSortTest(){
     for (auto ite : all) {
         if ( mmap[ite] != ite->getType()) {
             retVal+= "\n Failed to index element ";
-            retVal+= toString(ite->getType());
+            retVal+= to_string(ite->getType());
             retVal+= " got element ";
-            retVal+= toString(ite->getType());
+            retVal+= to_string(ite->getType());
             retVal+= " instead";
             continue;
         }
     }
 
     return retVal;
+}
+
+static std::string textExtract(const std::string& query, std::vector<Json_t> expected, Json_t root) {
+    std::vector<Json_t> result = Json::getChild(root, query);
+    if (result.size() != expected.size())
+        return std::string("\n Could not extract ") + query + ", wrong number of item, expected " + to_string(expected.size()) + ", got " + to_string(result.size());
+
+    for (int i = 0; i < result.size(); i++)
+        if (result[i]->cmp(expected[i].get()) != 0)
+            return std::string("\n Could not extract ") + query + ", element  " + to_string(i) + " differ.";
+
+    return "";
 }
 
 std::string doSearchTest(){
@@ -228,77 +241,107 @@ std::string doSearchTest(){
     obj->value["val6"] = std::make_shared<JsonInt>(7);
     obj->value["val7"] = std::make_shared<JsonInt>(8);
 
-    std::vector<Json_t> result;
+    std::vector<Json_t> expectedResult;
 
 
-    result = Json::getChild(root, "child1/sub1/val7");
-    if (result.size() != 1) {
-        retVal += "\n Could not extract child1/sub1/val7, invalid nb of elements";
-    }
-    else if (result.front()->getType() != JSON_INTEGER) {
-        retVal += "\n Could not extract child1/sub1/val7, invalid type";
-    }
-    else if (((JsonInt*)result.front().get())->value != 8) {
-        retVal += "\n Could not extract child1/sub1/val7, invalid value";
-    }
 
-    result = Json::getChild(root, "child1/sub0");
-    if (result.size() != 1) {
-        retVal += "\n Could not extract child1/sub0, invalid nb of elements";
-    }
-    else if (result.front()->getType() != JSON_OBJECT) {
-        retVal += "\n Could not extract child1/sub0, invalid type";
-    }
-    else if (((JsonInt*)((JsonObject*)result.front().get())->value["val2"].get())->value != 3) {
-        retVal += "\n Could not extract child1/sub0, invalid value";
-    }
+    expectedResult.clear();
+    expectedResult.push_back(child1_2->value["val7"]);
+    textExtract("/child1/sub1/val7", expectedResult, root);
 
-    result = Json::getChild(root, "child0/*/val1");
-    if (result.size() != 2) {
-        retVal += "\n Could not extract child0/*/val1, invalid nb of elements";
-    }
-    else if (result.front()->getType() != JSON_INTEGER) {
-        retVal += "\n Could not extract child0/*/val1, invalid type";
-    }
-    else if (((JsonInt*)result.front().get())->value != 1) {
-        retVal += "\n Could not extract child0/*/val1, invalid value";
-    }
-    else if (((JsonInt*)result.back().get())->value != 0) {
-        retVal += "\n Could not extract child0/*/val1, invalid value";
-    }
+    expectedResult.clear();
+    expectedResult.push_back(child1_1);
+    textExtract("/child1/sub0",      expectedResult, root);
 
-    result = Json::getChild(root, "*");
-    if (result.size() != 2) {
-        retVal += "\n Could not extract *, invalid nb of elements";
-    }
-    else if (result.front()->getType() != JSON_OBJECT) {
-        retVal += "\n Could not extract *, invalid type";
-    }
+    expectedResult.clear();
+    expectedResult.push_back(child0_1->value["val1"]);
+    expectedResult.push_back(child0_2->value["val1"]);
+    textExtract("/child0/*/val1",    expectedResult, root);
 
-    result = Json::getChild(root, "**/val1");
-    if (result.size() != 2) {
-        retVal += "\n Could not extract **/val1, invalid nb of elements";
-    }
-    else if (result.front()->getType() != JSON_INTEGER) {
-        retVal += "\n Could not extract **/val1, invalid type";
-    }
-    else if (((JsonInt*)result.front().get())->value != 1) {
-        retVal += "\n Could not extract **/val1, invalid value";
-    }
-    else if (((JsonInt*)result.back().get())->value != 0) {
-        retVal += "\n Could not extract **/val1, invalid value";
-    }
+    expectedResult.clear();
+    expectedResult.push_back(child0_1->value["val1"]);
+    expectedResult.push_back(child0_2->value["val1"]);
+    textExtract("/**/val1",    expectedResult, root);
 
-    result = Json::getChild(root, "child1/**");
-    if (result.size() != 2) {
-        retVal += "\n Could not extract child1/**, invalid nb of elements";
-    }
-    else if (result.front()->getType() != JSON_OBJECT) {
-        retVal += "\n Could not extract child1/**, invalid type";
-    }
-    else if (((JsonObject*)result.front().get())->value.size() != 3) {
-        retVal += "\n Could not extract child1/**, invalid size of child";
-    }
+    expectedResult.clear();
+    expectedResult.push_back(child0);
+    expectedResult.push_back(child1);
+    textExtract("/*",    expectedResult, root);
+
+    expectedResult.clear();
+    expectedResult.push_back(child0);
+    expectedResult.push_back(child1);
+    textExtract("/child1/**",    expectedResult, root);
+
+
+//    result = Json::getChild(root, "/child1/sub1/val7");
+//    if (result.size() != 1) {
+//        retVal += "\n Could not extract /child1/sub1/val7, invalid nb of elements";
+//    }
+//    else if (result.front()->getType() != JSON_INTEGER) {
+//        retVal += "\n Could not extract /child1/sub1/val7, invalid type";
+//    }
+//    else if (((JsonInt*)result.front().get())->value != 8) {
+//        retVal += "\n Could not extract /child1/sub1/val7, invalid value";
+//    }
+//
+//    result = Json::getChild(root, "/child1/sub0");
+//    if (result.size() != 1) {
+//        retVal += "\n Could not extract /child1/sub0, invalid nb of elements";
+//    }
+//    else if (result.front()->getType() != JSON_OBJECT) {
+//        retVal += "\n Could not extract /child1/sub0, invalid type";
+//    }
+//    else if (((JsonInt*)((JsonObject*)result.front().get())->value["val2"].get())->value != 3) {
+//        retVal += "\n Could not extract /child1/sub0, invalid value";
+//    }
+//
+//    result = Json::getChild(root, "/child0/*/val1");
+//    if (result.size() != 2) {
+//        retVal += "\n Could not extract child0/*/val1, invalid nb of elements";
+//    }
+//    else if (result.front()->getType() != JSON_INTEGER) {
+//        retVal += "\n Could not extract child0/*/val1, invalid type";
+//    }
+//    else if (((JsonInt*)result.front().get())->value != 1) {
+//        retVal += "\n Could not extract child0/*/val1, invalid value";
+//    }
+//    else if (((JsonInt*)result.back().get())->value != 0) {
+//        retVal += "\n Could not extract child0/*/val1, invalid value";
+//    }
+//
+//    result = Json::getChild(root, "*");
+//    if (result.size() != 2) {
+//        retVal += "\n Could not extract *, invalid nb of elements";
+//    }
+//    else if (result.front()->getType() != JSON_OBJECT) {
+//        retVal += "\n Could not extract *, invalid type";
+//    }
+//
+//    result = Json::getChild(root, "**/val1");
+//    if (result.size() != 2) {
+//        retVal += "\n Could not extract **/val1, invalid nb of elements";
+//    }
+//    else if (result.front()->getType() != JSON_INTEGER) {
+//        retVal += "\n Could not extract **/val1, invalid type";
+//    }
+//    else if (((JsonInt*)result.front().get())->value != 1) {
+//        retVal += "\n Could not extract **/val1, invalid value";
+//    }
+//    else if (((JsonInt*)result.back().get())->value != 0) {
+//        retVal += "\n Could not extract **/val1, invalid value";
+//    }
+
+//    result = Json::getChild(root, "child1/**");
+//    if (result.size() != 2) {
+//        retVal += "\n Could not extract child1/**, invalid nb of elements";
+//    }
+//    else if (result.front()->getType() != JSON_OBJECT) {
+//        retVal += "\n Could not extract child1/**, invalid type";
+//    }
+//    else if (((JsonObject*)result.front().get())->value.size() != 3) {
+//        retVal += "\n Could not extract child1/**, invalid size of child";
+//    }
 
     return retVal;
 }

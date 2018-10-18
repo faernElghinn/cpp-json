@@ -10,7 +10,6 @@
 #include <exception>
 #include <memory>
 #include <sstream>
-#include <unordered_map>
 #include <vector>
 #include <cstdio>
 
@@ -108,7 +107,7 @@ obj->value["1"] = std::make_shared<Type>();\
 assign;\
 obj->write(&bson, EncodingOption(), StreamFormat::BSON);\
 if (bson.str().size() != sizeof (Value) || memcmp(bson.str().c_str(), Value, sizeof(Value)) != 0){\
-	retVal += "\nInvalid bson size for " #Value ", expected " + toString(sizeof (Value)) +", got " + toString(bson.str().size());\
+	retVal += "\nInvalid bson size for " #Value ", expected " + std::to_string(sizeof (Value)) +", got " + std::to_string(bson.str().size());\
 	retVal += "\nInvalid bson for " #Value ", expected : \n" + printAsHex(Value, sizeof (Value)) +"\ngot :\n" + printAsHex(bson.str());\
 }\
 } while(0)

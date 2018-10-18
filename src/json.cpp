@@ -51,48 +51,77 @@ Json::~Json() {
 
 // - * Match any (map to .*)
 // - ** skip any number of level.
-static std::vector<Json_t> getChildInternal (const Json_t& ele, size_t deepness, std::vector<std::string> parts) {
-    std::vector<Json_t> retVal;
-    if (deepness > parts.size()){
+static void getChildInternal (const Json_t& ele, size_t deepness, std::vector<std::string> parts, std::vector<Json_t>& retVal) {
+    /*
+     *
+     * The objective:
+     * We got a path, ie : /some/0/**\/child/*\/amigo/\**
+     * We need to traverse json tree from the current object to the targets defined bu the path.
+     * There are some edge case :
+     * - all path start by "/".
+     *   - Unless it's an empty string, in which case return the current item. => Generalise to empty == current item.
+     * - The numbers are either object key, or array idx.
+     * - A single * mean any value;
+     * - A double ** mean any value, recursive.
+     *
+     * As this function is recursive, use deepness to know where we are in the path
+     */
+
+
+    // No element? don't process
+    if (!ele) {}
+
+    // We are past the path parts : this is the one we are looking for.
+    else if (deepness >= parts.size())
         retVal.push_back(ele);
-    }
-    else if (!ele) {
-        return retVal;
-    }
-    else if (ele->getType() == json::JSON_ARRAY) {
-        for (auto ite : ele->toArray()->value){
-            auto subRet = getChildInternal(ele, deepness, parts);
-            retVal.insert(subRet.begin(), subRet.end(), retVal.end());
+
+    // Got an object.
+    else if (ele->getType() == json::JSON_OBJECT) {
+        for (auto ite : ele->toObject()->value) {
+            bool match;
+            int inc = 1;
+
+            // The complicated case : recursive any.
+            if (parts[deepness] == "**") {
+                // The current element always match path.
+                match = true;
+
+                // Increase deepness only if the child match the following element.
+                inc = 2*(deepness + 1 < parts.size() && parts[deepness+1] == ite.first);
+            }
+
+            // Else select this item if it match the looked for name (or "any").
+            else
+                match = parts[deepness] == "*" || parts[deepness] == ite.first;
+
+            if (match)
+                getChildInternal(ite.second, deepness+inc, parts, retVal);
         }
     }
-    else if (ele->getType() == json::JSON_OBJECT) {
-        for (auto ite : ele->toObject()->value){
+
+    // The array is the same as object, just with native int as index.
+    else if (ele->getType() == json::JSON_ARRAY) {
+        for (int i = 0; i < ele->toArray()->value.size(); i++) {
             bool match;
-            bool inc = true;
+            int inc = 1;
 
             if (parts[deepness] == "**") {
                 match = true;
-                inc = false;
-                deepness += (deepness + 1 < parts.size() && parts[deepness+1] == ite.first);
+                inc = 2*(deepness + 1 < parts.size() && parts[deepness+1] == std::to_string(i));
             }
-            else {
-                match = parts[deepness] == "*" || parts[deepness] == ite.first;
-            }
+            else
+                match = parts[deepness] == "*" || parts[deepness] == std::to_string(i);
 
-            if (match && deepness+1 == parts.size()) {
-                retVal.push_back(ite.second);
-            }
-            else if (match) {
-                auto subRet = getChildInternal(ite.second, deepness+inc, parts);
-                retVal.insert(retVal.end(), subRet.begin(), subRet.end());
-            }
+            if (match)
+                getChildInternal(ele->toArray()->value[i], deepness+inc, parts, retVal);
         }
     }
-    return retVal;
 }
 
 std::vector<Json_t> Json::getChild(const Json_t& ele, const std::string& path){
-    return getChildInternal(ele, 0, tokenize(path, "/"));
+    std::vector<Json_t> retVal;
+    getChildInternal(ele, 1, tokenize(path, "/"), retVal);
+    return retVal;
 }
 
 JsonType Json::getType() const {
@@ -109,7 +138,7 @@ Json_t Json::deep_copy() const {
 
 void Json::write(std::ostream* out, EncodingOption flags, StreamFormat format){
     switch (format) {
-        case StreamFormat::JSON:     JsonSerializer::write(out, this, flags);            break;
+        case StreamFormat::JSON:    JsonSerializer::write(out, this, flags);            break;
         case StreamFormat::BSON:    BsonSerializer::write(out, this, flags);            break;
         default:                    throw Exception("Unknown stream format");
     }
@@ -311,6 +340,18 @@ std::string Binary::toHex() const{
 
     return str.str();
 }
+int Binary::cmp (const Binary* rhs) const{
+    if (size != rhs->size) return size - rhs->size;
+    return memcmp(data, rhs->data, size);
+}
+bool Binary::operator != (const Binary* rhs) const{ return cmp(rhs) != 0; }
+bool Binary::operator  < (const Binary* rhs) const{ return cmp(rhs)  < 0; }
+bool Binary::operator <= (const Binary* rhs) const{ return cmp(rhs) <= 0; }
+bool Binary::operator == (const Binary* rhs) const{ return cmp(rhs) == 0; }
+bool Binary::operator >= (const Binary* rhs) const{ return cmp(rhs) >= 0; }
+bool Binary::operator  > (const Binary* rhs) const{ return cmp(rhs)  > 0; }
+
+
 
 JsonType JsonBinary::getType() const {
     return JSON_BINARY;
@@ -323,9 +364,7 @@ int JsonBinary::cmp (const Json* right) const {
     if (value.get() == oth->value.get()) return 0;
     if (!value) return -1;
     if (!oth->value) return 1;
-    if (value->size < oth->value->size) return -1;
-    if (value->size > oth->value->size) return 1;
-    return memcmp(value->data, oth->value->data, value->size);
+    return value->cmp(oth->value.get());
 }
 Json_t JsonBinary::deep_copy() const{
     JsonBinary_t bin = std::make_shared<JsonBinary>();
@@ -373,7 +412,10 @@ void fromJson_imp (Json_t ele, elladan::UUID& out) {
 
 } } // namespace elladan::json
 
-std::string toString (elladan::json::Json_t val)
+namespace std {
+
+
+std::string to_string (elladan::json::Json_t val)
 {
     if (!val) return "none";
     std::stringstream str;
@@ -381,7 +423,7 @@ std::string toString (elladan::json::Json_t val)
     return str.str();
 }
 
-std::string toString (elladan::json::JsonType type){
+std::string to_string (elladan::json::JsonType type){
     switch (type) {
         case elladan::json::JSON_NONE:      return "JsonNone";
         case elladan::json::JSON_NULL:      return "JsonNull";
@@ -395,3 +437,10 @@ std::string toString (elladan::json::JsonType type){
     }
     return "JsonUnknown";
 }
+
+std::string to_string (elladan::json::Binary_t bin){
+    if (!bin.get()) return "(NULL)";
+    return bin->toHex();
+}
+
+}  // namespace std

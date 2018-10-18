@@ -11,10 +11,11 @@
 #include <exception>
 #include <memory>
 #include <sstream>
-#include <unordered_map>
 #include <vector>
 
 #include "Test.h"
+
+using std::to_string;
 
 static const std::string ExpectWS =
         "{\n"
@@ -47,16 +48,16 @@ static std::string test_throw_exep(const std::string& txt, DecodingOption opt = 
     return retVal;
 }
 
-#define test_mode_value_noFormat(txt, type, opt) \
+#define test_mode_value_noFormat(txt, type, opt)  \
     try{ \
         std::stringstream ss;\
         ss << txt; \
         Json_t obj = Json::read(&ss, opt, StreamFormat::JSON); \
         if (obj->getType() != type) \
-            retVal += "\nCould not decode \""  txt  "\" as " + toString(type) + ""; \
+            retVal += "\nCould not decode \""  txt  "\" as " + to_string(type) + ""; \
     } \
     catch (std::exception& e) { \
-        retVal += "\nCould not decode \""  txt  "\" as " + toString(type) + " " + e.what(); \
+        retVal += "\nCould not decode \""  txt  "\" as " + to_string(type) + " " + e.what(); \
     }
 
 #define test_mode_value(txt, type, opt, Val, expected) \
@@ -65,19 +66,18 @@ static std::string test_throw_exep(const std::string& txt, DecodingOption opt = 
         ss << txt; \
         Json_t obj = Json::read(&ss, opt, StreamFormat::JSON); \
         if (obj->getType() != type) \
-            retVal += "\nCould not decode \"" txt "\" as " + toString(type) + ""; \
+            retVal += "\nCould not decode \"" txt "\" as " + to_string(type) + ""; \
         else if (std::dynamic_pointer_cast<Json##Val>(obj)->value != expected) { \
             retVal += "\nInvalid value for \"" txt "\", expected "; \
-            retVal += toString(expected) + " got " + toString(std::dynamic_pointer_cast<Json##Val>(obj)->value); \
+            retVal += to_string(expected) + " got " + to_string(std::dynamic_pointer_cast<Json##Val>(obj)->value); \
         }\
     } \
     catch (std::exception& e) { \
-        retVal += "\nCould not decode \"" txt "\" as " + toString(type); \
+        retVal += "\nCould not decode \"" txt "\" as " + to_string(type); \
     }
 
 std::string testTxtToJson(){
     std::string retVal;
-    Json_t obj;
 
     test_throw_exep("none");
     test_throw_exep("null");
@@ -101,8 +101,11 @@ std::string testTxtToJson(){
 
     test_mode_value ("\"Some text with \\\"\"", JSON_STRING, DecodingOption(), String, "Some text with \"")
 
+
+    Json_t obj;
+
     try{
-    std::stringstream ss;
+        std::stringstream ss;
         ss << "[1,2,3]";
         obj = Json::read(&ss, DecodingOption(), StreamFormat::JSON);
         if (obj->getType() != JSON_ARRAY)
