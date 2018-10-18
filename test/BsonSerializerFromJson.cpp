@@ -11,11 +11,12 @@
 #include <memory>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include <fstream>
 
 #include "Test.h"
+
+using std::to_string;
 
 using namespace elladan;
 using namespace elladan::json;
@@ -100,7 +101,7 @@ try{\
     else if (obj->value["1"]->getType() != JSON_##Type )\
         retVal += "\nInvalid decoded type in " #src;\
     else if (((Json##type*)obj->value["1"].get())->value != Value)\
-        retVal += "\nInvalid decoded value in " #src ", expected " + toString(Value) + " got " + toString(((Json##type*)obj->value["1"].get())->value);\
+        retVal += "\nInvalid decoded value in " #src ", expected " + to_string(Value) + " got " + to_string(((Json##type*)obj->value["1"].get())->value);\
 } catch (std::exception& e) {\
     retVal += std::string("\nError decoding ") + #src + " : " + e.what();\
 }
@@ -270,7 +271,7 @@ std::string testBsonExtract(){
     }
 
     str.seekg(std::istream::beg);
-    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "child1/sub1/val7");
+    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "/child1/sub1/val7");
     if (result.size() != 1) {
         retVal += "\n Could not extract child1/sub1/val7, invalid nb of elements";
     }
@@ -282,7 +283,7 @@ std::string testBsonExtract(){
     }
 
     str.seekg(std::istream::beg);
-    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "child1/sub0");
+    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "/child1/sub0");
     if (result.size() != 1) {
         retVal += "\n Could not extract child1/sub0, invalid nb of elements";
     }
@@ -294,7 +295,7 @@ std::string testBsonExtract(){
     }
 
     str.seekg(std::istream::beg);
-    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "child0/*/val1");
+    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "/child0/*/val1");
     if (result.size() != 2) {
         retVal += "\n Could not extract child0/*/val1, invalid nb of elements";
     }
@@ -309,7 +310,7 @@ std::string testBsonExtract(){
     }
 
     str.seekg(std::istream::beg);
-    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "*");
+    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "/*");
     if (result.size() != 2) {
         retVal += "\n Could not extract *, invalid nb of elements";
     }
@@ -318,7 +319,7 @@ std::string testBsonExtract(){
     }
 
     str.seekg(std::istream::beg);
-    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "**/val1");
+    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "/**/val1");
     if (result.size() != 2) {
         retVal += "\n Could not extract **/val1, invalid nb of elements";
     }
@@ -333,7 +334,7 @@ std::string testBsonExtract(){
     }
 
     str.seekg(std::istream::beg);
-    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "child1/**");
+    result = Json::extract(&str, DecodingOption(), StreamFormat::BSON, "/child1/**");
     if (result.size() != 2) {
         retVal += "\n Could not extract child1/**, invalid nb of elements";
     }
