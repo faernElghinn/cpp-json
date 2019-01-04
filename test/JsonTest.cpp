@@ -17,340 +17,252 @@
 #undef NULL
 
 using std::to_string;
+using namespace elladan::json;
 
 // Test if we can instanciate our object.
-std::string doConstructionTest(){
+std::string doConstructionTest() {
     std::string retVal;
 
-    // Test creation
-#define CREATE(name, Type) do{\
-    Json_t name = std::make_shared<Type>();\
-    if (name->getType() != JSON_ ##name) \
-    retVal += "Fail to allocate " # Type " \n";\
-    std::shared_ptr<Type> castAs ##name = std::dynamic_pointer_cast<Type>(name);\
-    if (!castAs ##name) retVal += "->Fail to cast " # Type " \n";\
-} while(0)
-    CREATE(NONE,   Json);
-    CREATE(NULL,   JsonNull);
-    CREATE(BOOL,   JsonBool);
-    CREATE(INTEGER,JsonInt);
-    CREATE(DOUBLE, JsonDouble);
-    CREATE(STRING, JsonString);
-    CREATE(ARRAY,  JsonArray);
-    CREATE(OBJECT, JsonObject);
-//    CREATE(BINARY, JsonBinary);
-#undef CREATE
+    Json emptyJson;
+    Json nullJson = Null();
+    Json intJson = 0;
+    Json uintJson = 0U;
+    Json int64Json = 0L;
+    Json uint64Json = 0UL;
+    float f = 0.;    Json floatJson = f;
+    double d = 0.;   Json doubleJson = d;
+    Json charJson = "adsfsa";
+    Json StringJson = std::string("adsfsa");
+    Json arrayJson = Array();
+    Json objJson = Object();
+    
+    Json uuidJson = UUID();
+    Json binJson = Binary();
+
+    objJson.as<Object>().operator[]("some") = 3;
+    Json ss = objJson;
 
     return retVal;
 }
 
-// Test if conversion to / from json works
-std::string doAutoJsonTest(){
-    std::string retVal;
+std::string doAssignTest() {
+   std::string retVal;
 
-    do {\
-        Json_t val = std::make_shared<Json>();
-        if (to_string(val) != "none") retVal += std::string("Invalid JsonNone to_string(), expected none got ") + to_string(val) + "\n";
-    } while (0);
+   Array ar = { 1, 2, 3, "sfda", 1.0, 2.0, Null(), true, false };
+   Json obj = Object();
+   obj.as<Object>()["test"] = std::move(ar);
 
-    do {\
-        Json_t val = std::make_shared<JsonNull>();\
-        if (to_string(val) != "null") retVal +=  std::string("Invalid JsonNull to_string(), expected null got ") + to_string(val) + "\n";
-    } while (0);
+   if (obj.as<Object>()["test"].getType() != Json::typeOf<Array>() )
+      retVal += "\n not an array";
+   else{
+      const Array& arr = obj.as<Object>()["test"].as<Array>();
 
-#define TEST(Val, Value, asStr)\
-do {\
-    Json_t val = toJson(Value);\
-    Json##Val##_t ele = std::dynamic_pointer_cast<Json##Val>(val);\
-    if (!ele) retVal +=  std::string("Allocated wrong type, expected Json" #Val " got ") + to_string(val->getType()) + "\n";\
-    if (ele->value != Value) retVal +=  "Invalid value in Json" #Val "\n";\
-    if (to_string(val) != asStr) retVal +=  std::string("Invalid Json" #Val " to_string(), expected " asStr " got ") + to_string(val) + "\n";\
-} while (0);
-    TEST(Bool, true, "true");
-    TEST(Int, 2, "2");
-    TEST(Double, 2.7, "2.700000");
-    TEST(String, "test", "\"test\"");
-#undef TEST
+      if (arr.size() != 9)
+         retVal += "\n Expected 9 elements";
 
-    do {\
-        Json_t val = std::make_shared<JsonArray>();
-        JsonArray_t ele = std::dynamic_pointer_cast<JsonArray>(val);
-        if (!ele) retVal +=  "Allocated wrong type, expected JsonArray\n";
-        if (to_string(val) != "[]") retVal +=  std::string("Invalid JsonArray to_string(), expected [] got ") + to_string(val) + "\n";
-    } while (0);
+      if (arr.at(0).getType() != Json::typeOf<int64_t>() )
+         retVal += "\n first element is not of type int64_t";
+      else if (arr[0].as<int64_t>() != 1 )
+         retVal += "\n Invalid value, expected 1";
+         
+      if (arr.at(3).getType() != Json::typeOf<std::string>() )
+         retVal += "\n forth element is not of type string";
+      else if (arr[3].as<std::string>() != "sfda" ) 
+         retVal += "\n Invalid value, expected 'sdfa', got";
+         
+      if (arr.at(5).getType() != Json::typeOf<double>() )
+         retVal += "\n fifth element is not of type float";
+      else if (arr[5].as<double>() != 2.0 )
+         retVal += "\n Invalid value, expected '2.0'";
 
-    do {\
-        Json_t val = std::make_shared<JsonObject>();
-        JsonObject_t ele = std::dynamic_pointer_cast<JsonObject>(val);
-        if (!ele) retVal +=  "Allocated wrong type, expected JsonObject\n" ;
-        if (to_string(val) != "{}") retVal +=  std::string("Invalid JsonObject to_string(), expected {} got ") + to_string(val) + "\n";
-    } while (0);
+      if (arr.at(6).cast<Null>() == nullptr)
+         retVal += "\n sixth element should be Null";
+      else if (arr.at(6).cast<bool>() != nullptr)
+         retVal += "\n sixth element should be Null";
+         
+      if (arr.at(8).getType() != Json::typeOf<bool>() )
+         retVal += "\n fifth element is not of type bool";
+      else if (arr[8].as<bool>() != false )
+         retVal += "\n Invalid value, expected false";
 
-#define TEST(val, Type)\
-try {\
-    auto res = fromJson<Type>(toJson(val)); \
- if (res != val) \
-    retVal +=  std::string("Invalid Json" #Type " to bool, got ") + to_string(res) + "\n"; \
-} catch (std::exception& e) {\
-    retVal +=  std::string("Invalid fromJson with Json" #Type ", got exception\n");\
-}
-    TEST(true, bool);
-    TEST(-1,   int64_t);
-    TEST(3.14, double);
-    TEST("test", std::string);
-    UUID uid = UUID::generateUUID();
-    TEST(uid, UUID);
-    Binary_t bin = std::make_shared<Binary>("ABCDEFG");
-    TEST(bin, Binary_t);
-#undef TEST
-
-    return retVal;
-}
-
-
-
-std::string doSortTest(){
-
-    JsonNull_t nul = std::make_shared<JsonNull>();
-    JsonBool_t bt = std::make_shared<JsonBool>(false);
-    JsonBool_t bf = std::make_shared<JsonBool>(true);
-    JsonInt_t i0 = std::make_shared<JsonInt>(0);
-    JsonInt_t i1 = std::make_shared<JsonInt>(1);
-    JsonDouble_t d0 = std::make_shared<JsonDouble>(0);
-    JsonDouble_t d1 = std::make_shared<JsonDouble>(1);
-    JsonString_t str0 = std::make_shared<JsonString>("0");
-    JsonString_t str1 = std::make_shared<JsonString>("1");
-    JsonArray_t arr0 = std::make_shared<JsonArray>();
-    JsonArray_t arr1 = std::make_shared<JsonArray>();
-    arr1->value.push_back(std::make_shared<JsonInt>(0));
-    JsonArray_t arr2 = std::make_shared<JsonArray>();
-    arr2->value.push_back(std::make_shared<JsonInt>(0));
-    arr2->value.push_back(std::make_shared<JsonInt>(1));
-    JsonArray_t arr3 = std::make_shared<JsonArray>();
-    arr3->value.push_back(std::make_shared<JsonInt>(1));
-    JsonObject_t obj0 = std::make_shared<JsonObject>();
-    JsonObject_t obj1 = std::make_shared<JsonObject>();
-    obj1->value["0"] = (std::make_shared<JsonInt>(0));
-    JsonObject_t obj2 = std::make_shared<JsonObject>();
-    obj2->value["0"] = (std::make_shared<JsonInt>(0));
-    obj2->value["1"] = (std::make_shared<JsonInt>(1));
-    JsonObject_t obj3 = std::make_shared<JsonObject>();
-    obj3->value["0"] = (std::make_shared<JsonInt>(1));
-    JsonBinary_t bin0 = std::make_shared<JsonBinary>();
-    JsonBinary_t bin1 = std::make_shared<JsonBinary>(std::make_shared<Binary>(sizeof(int32_t))); *((int32_t*)bin1->value->data) = 1;
-    JsonBinary_t bin2 = std::make_shared<JsonBinary>(std::make_shared<Binary>(sizeof(int32_t))); *((int32_t*)bin2->value->data) = 2;
-
-    std::vector<Json_t> all = {
-            nul, bf, bt, i0, i1, d0, d1, str0, str1, arr0, arr1, arr2, arr3, obj0, obj1, obj2, obj3, bin0, bin1, bin2
-    };
-
-    std::set<Json_t, cmpJson> sset;
-
-    std::string retVal;
-    auto total = 1;
-    for (auto ite : all)
-    {
-        if (sset.count(ite) != 0) {
-            retVal+= "\n Element mismatch, ";
-            retVal+= to_string(ite->getType());
-            retVal+= " already present in stream";
-            continue;
-        }
-
-        sset.insert(ite);
-        if (sset.size() != total){
-            retVal+= "\n Failed to insert element ";
-            retVal+= to_string(ite->getType());
-            continue;
-        }
-        total++;
-    }
-
-    std::map<Json_t, JsonType, cmpJson> mmap;
-    for (auto ite : all)
-        mmap[ite] = ite->getType();
-
-    for (auto ite : all) {
-        if ( mmap[ite] != ite->getType()) {
-            retVal+= "\n Failed to index element ";
-            retVal+= to_string(ite->getType());
-            retVal+= " got element ";
-            retVal+= to_string(ite->getType());
-            retVal+= " instead";
-            continue;
-        }
     }
 
     return retVal;
 }
 
-static std::string textExtract(const std::string& query, std::vector<Json_t> expected, Json_t root) {
-    std::vector<Json_t> result = Json::getChild(root, query);
-    if (result.size() != expected.size())
-        return std::string("\n Could not extract ") + query + ", wrong number of item, expected " + to_string(expected.size()) + ", got " + to_string(result.size());
+std::string doGetTest() {
+   std::string retVal;
 
-    for (int i = 0; i < result.size(); i++)
-        if (result[i]->cmp(expected[i].get()) != 0)
-            return std::string("\n Could not extract ") + query + ", element  " + to_string(i) + " differ.";
+   Object c11;
+   c11.insert("0", 0);
+   c11.insert("1", 1);
+   c11.insert("2", 2);
+   
+   Object c12;
+   c12.insert("0", 1);
+   c12.insert("1", 2);
+   c12.insert("2", 3);
 
-    return "";
+   Object c1;
+   c1.insert("a", std::move(c11));
+   c1.insert("c", std::move(c12));
+
+
+   Object c21;
+   c21.insert("2", 4);
+   c21.insert("3", 5);
+   c21.insert("4", 6);
+
+   Object c22;
+   c22.insert("5", 7);
+   c22.insert("6", 8);
+   c22.insert("7", 9);
+
+   Array c2 = {std::move(c21), std::move(c22)};
+   
+   Object r;
+   r.insert("a", std::move(c1));
+   r.insert("b", std::move(c2));
+
+   Json root = std::move(r);
+
+   std::vector<Json*> res;
+   
+   res = root.get("a/a/0");
+   if (res.size() != 1) {
+      retVal += "\n Expected 1 result from query";
+   } else if (res.front()->as<int64_t>() != 0) {
+      retVal += "\n Wrong node extracted, expected to be 0";
+   }
+
+   res = root.get("a/a/*");
+   if (res.size() != 3) {
+      retVal += "\n Expected 3 result from query";
+   } else if (res[0]->as<int64_t>() != 2) {
+      retVal += "\n Wrong node extracted, expected to be 2, got ";
+      retVal += to_string(res.front()->as<int64_t>());
+   } else if (res[1]->as<int64_t>() != 1) {
+      retVal += "\n Wrong node extracted, expected to be 1, got ";
+      retVal += to_string(res[1]->as<int64_t>());
+   } else if (res[2]->as<int64_t>() != 0) {
+      retVal += "\n Wrong node extracted, expected to be 0, got ";
+      retVal += to_string(res[2]->as<int64_t>());
+   }
+
+   res = root.get("a/*/1");
+   if (res.size() != 2) {
+      retVal += "\n Expected 2 result from query";
+   } else if (res[0]->as<int64_t>() != 2) {
+      retVal += "\n Wrong node extracted, expected to be 2, got ";
+      retVal += to_string(res.front()->as<int64_t>());
+   } else if (res[1]->as<int64_t>() != 1) {
+      retVal += "\n Wrong node extracted, expected to be 1, got ";
+      retVal += to_string(res[1]->as<int64_t>());
+   }
+
+   res = root.get("**/2");
+   if (res.size() != 3) {
+      retVal += "\n Expected 3 result from query, got ";
+      retVal += to_string(res.size());
+   } else if (res[0]->as<int64_t>() != 4) {
+      retVal += "\n Wrong node extracted, expected to be 4, got ";
+      retVal += to_string(res.front()->as<int64_t>());
+   } else if (res[1]->as<int64_t>() != 3) {
+      retVal += "\n Wrong node extracted, expected to be 3, got ";
+      retVal += to_string(res[1]->as<int64_t>());
+   } else if (res[2]->as<int64_t>() != 2) {
+      retVal += "\n Wrong node extracted, expected to be 2, got ";
+      retVal += to_string(res[2]->as<int64_t>());
+   }
+
+   return retVal;
 }
 
-std::string doSearchTest(){
-    std::string retVal;
+std::string doMemTest() {
+   std::string retVal;
 
-    JsonObject_t root = std::make_shared<JsonObject>();
-    JsonObject_t child0 = std::make_shared<JsonObject>();
-    JsonObject_t child0_1 = std::make_shared<JsonObject>();
-    JsonObject_t child0_2 = std::make_shared<JsonObject>();
-    JsonObject_t child1 = std::make_shared<JsonObject>();
-    JsonObject_t child1_1 = std::make_shared<JsonObject>();
-    JsonObject_t child1_2 = std::make_shared<JsonObject>();
+   Array orig = { 0,1,2,3};
+   
+   Json copy1 = orig;
+   copy1.as<Array>().pop_back();
 
-    JsonObject *obj;
+   orig.push_back(4);
+   orig.push_back(5);
 
-    obj = root.get();
-    obj->value["child0"] = child0;
-    obj->value["child1"] = child1;
+   Json copy2 = std::move(orig);
 
-    obj = child0.get();
-    obj->value["sub0"] = child0_1;
-    obj->value["sub1"] = child0_2;
+   copy2.as<Array>().push_back(6);
 
-    obj = child1.get();
-    obj->value["sub0"] = child1_1;
-    obj->value["sub1"] = child1_2;
+   if (copy1.as<Array>().size() != 3)
+      retVal += "\n Expected array of 3 elements, got " + to_string(copy1.as<Array>().size());
 
-    obj = child0_1.get();
-    obj->value["val0"] = std::make_shared<JsonInt>(0);
-    obj->value["val1"] = std::make_shared<JsonInt>(1);
-    obj->value["val2"] = std::make_shared<JsonInt>(2);
+   if (copy2.as<Array>().size() != 7)
+      retVal += "\n Expected array of 7 elements, got " + to_string(copy2.as<Array>().size());
 
-    obj = child0_2.get();
-    obj->value["val1"] = std::make_shared<JsonInt>(0);
-    obj->value["val2"] = std::make_shared<JsonInt>(1);
-    obj->value["val3"] = std::make_shared<JsonInt>(2);
+   return retVal;
+}
 
-    obj = child1_1.get();
-    obj->value["val2"] = std::make_shared<JsonInt>(3);
-    obj->value["val3"] = std::make_shared<JsonInt>(4);
-    obj->value["val4"] = std::make_shared<JsonInt>(5);
+std::string doCmpTest() {
+   std::string retVal;
 
-    obj = child1_2.get();
-    obj->value["val5"] = std::make_shared<JsonInt>(6);
-    obj->value["val6"] = std::make_shared<JsonInt>(7);
-    obj->value["val7"] = std::make_shared<JsonInt>(8);
+   Json int_1 = -1;
+   Json int1 = 1;
+   Json int4 = 4;
+   
+   Json d4 = 4.0;
+   Json d2 = 2.0;
 
-    std::vector<Json_t> expectedResult;
+   Json boolf = false;
+   Json boolt = true;
+   Json boolt2 = true;
 
+   Array arr1 = {false, 2, 4, 2.1 };
+   Array arr2 = {false};
+   Array arr3 = {"str", "sdf", 123, 1};
 
+   Object o1 = {
+      {"asdf", "dfsafd"},
+      {"ASDF", "dfsafd"}
+   };
+   Object o2 = {
+      {"asdf", "gdsa"},
+      {"ASDF", "sadf"}
+   };
+   Object o3 = {
+      {"sadfsda", "dfs"},
+   };
 
-    expectedResult.clear();
-    expectedResult.push_back(child1_2->value["val7"]);
-    textExtract("/child1/sub1/val7", expectedResult, root);
+#define CMP(lhs, op, rhs) if (!(lhs op rhs)) retVal += "\n Expected "#lhs " to be " #op" than " #rhs
+   CMP(int4, !=, d4);
+   CMP(boolt, !=, int1);
+   CMP(boolt, !=, d2);
 
-    expectedResult.clear();
-    expectedResult.push_back(child1_1);
-    textExtract("/child1/sub0",      expectedResult, root);
+   CMP(int_1, <, int1);
+   CMP(int4, >, int1);
+   CMP(int4, >, int_1);
+   CMP(int1, ==, int1);
 
-    expectedResult.clear();
-    expectedResult.push_back(child0_1->value["val1"]);
-    expectedResult.push_back(child0_2->value["val1"]);
-    textExtract("/child0/*/val1",    expectedResult, root);
+   CMP(d2, <, d4);
 
-    expectedResult.clear();
-    expectedResult.push_back(child0_1->value["val1"]);
-    expectedResult.push_back(child0_2->value["val1"]);
-    textExtract("/**/val1",    expectedResult, root);
+   CMP(boolf, !=, boolt);
+   CMP(boolt2, ==, boolt);
 
-    expectedResult.clear();
-    expectedResult.push_back(child0);
-    expectedResult.push_back(child1);
-    textExtract("/*",    expectedResult, root);
+   CMP(arr1, >, arr2);
+   CMP(arr1, <, arr3);
 
-    expectedResult.clear();
-    expectedResult.push_back(child0);
-    expectedResult.push_back(child1);
-    textExtract("/child1/**",    expectedResult, root);
+   CMP(o1, <, o2);
+   CMP(o1, >, o3);
+#undef CMP
 
-
-//    result = Json::getChild(root, "/child1/sub1/val7");
-//    if (result.size() != 1) {
-//        retVal += "\n Could not extract /child1/sub1/val7, invalid nb of elements";
-//    }
-//    else if (result.front()->getType() != JSON_INTEGER) {
-//        retVal += "\n Could not extract /child1/sub1/val7, invalid type";
-//    }
-//    else if (((JsonInt*)result.front().get())->value != 8) {
-//        retVal += "\n Could not extract /child1/sub1/val7, invalid value";
-//    }
-//
-//    result = Json::getChild(root, "/child1/sub0");
-//    if (result.size() != 1) {
-//        retVal += "\n Could not extract /child1/sub0, invalid nb of elements";
-//    }
-//    else if (result.front()->getType() != JSON_OBJECT) {
-//        retVal += "\n Could not extract /child1/sub0, invalid type";
-//    }
-//    else if (((JsonInt*)((JsonObject*)result.front().get())->value["val2"].get())->value != 3) {
-//        retVal += "\n Could not extract /child1/sub0, invalid value";
-//    }
-//
-//    result = Json::getChild(root, "/child0/*/val1");
-//    if (result.size() != 2) {
-//        retVal += "\n Could not extract child0/*/val1, invalid nb of elements";
-//    }
-//    else if (result.front()->getType() != JSON_INTEGER) {
-//        retVal += "\n Could not extract child0/*/val1, invalid type";
-//    }
-//    else if (((JsonInt*)result.front().get())->value != 1) {
-//        retVal += "\n Could not extract child0/*/val1, invalid value";
-//    }
-//    else if (((JsonInt*)result.back().get())->value != 0) {
-//        retVal += "\n Could not extract child0/*/val1, invalid value";
-//    }
-//
-//    result = Json::getChild(root, "*");
-//    if (result.size() != 2) {
-//        retVal += "\n Could not extract *, invalid nb of elements";
-//    }
-//    else if (result.front()->getType() != JSON_OBJECT) {
-//        retVal += "\n Could not extract *, invalid type";
-//    }
-//
-//    result = Json::getChild(root, "**/val1");
-//    if (result.size() != 2) {
-//        retVal += "\n Could not extract **/val1, invalid nb of elements";
-//    }
-//    else if (result.front()->getType() != JSON_INTEGER) {
-//        retVal += "\n Could not extract **/val1, invalid type";
-//    }
-//    else if (((JsonInt*)result.front().get())->value != 1) {
-//        retVal += "\n Could not extract **/val1, invalid value";
-//    }
-//    else if (((JsonInt*)result.back().get())->value != 0) {
-//        retVal += "\n Could not extract **/val1, invalid value";
-//    }
-
-//    result = Json::getChild(root, "child1/**");
-//    if (result.size() != 2) {
-//        retVal += "\n Could not extract child1/**, invalid nb of elements";
-//    }
-//    else if (result.front()->getType() != JSON_OBJECT) {
-//        retVal += "\n Could not extract child1/**, invalid type";
-//    }
-//    else if (((JsonObject*)result.front().get())->value.size() != 3) {
-//        retVal += "\n Could not extract child1/**, invalid size of child";
-//    }
-
-    return retVal;
+   return retVal;
 }
 
 int main(int argc, char **argv) {
 	bool valid = true;
 	EXE_TEST(doConstructionTest());
-	EXE_TEST(doAutoJsonTest());
-	EXE_TEST(doSortTest());
-	EXE_TEST(doSearchTest());
+	EXE_TEST(doAssignTest());
+	EXE_TEST(doGetTest());
+	EXE_TEST(doMemTest());
+	EXE_TEST(doCmpTest());
 	return valid ? 0 : -1;
 }

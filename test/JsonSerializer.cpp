@@ -14,16 +14,17 @@
 #include <vector>
 
 #include "../src/json.h"
-#include "../src/serializer/JsonSerializer.h"
+#include "../src/serializer/JsonWriter.h"
 #include "Test.h"
 
 using std::to_string;
+using namespace elladan::json;
 
 static const std::string ExpectNotSorted = "{"
         "\"null\":null,"
         "\"bool\":true,"
         "\"int\":0,"
-        "\"double\":3.141500,"
+        "\"double\":3.141500000,"
         "\"string\":\"testing how this work\","
         "\"arr\":[],"
         "\"obj\":{},"
@@ -33,7 +34,7 @@ static const std::string ExpectNotSorted = "{"
 static const std::string ExpectSorted = "{"
         "\"arr\":[],"
         "\"bool\":true,"
-        "\"double\":3.141500,"
+        "\"double\":3.141500000,"
         "\"fill_arr\":[0,1,2,3],"
         "\"int\":0,"
         "\"null\":null,"
@@ -45,7 +46,7 @@ static const std::string ExpectWS =
             "\t\"null\" : null,\n"
             "\t\"bool\" : true,\n"
             "\t\"int\" : 0,\n"
-            "\t\"double\" : 3.141500,\n"
+            "\t\"double\" : 3.141500000,\n"
             "\t\"string\" : \"testing how this work\",\n"
             "\t\"arr\" : [\n"
             "\t],\n"
@@ -64,51 +65,56 @@ std::string testJsonToTxt(){
 
     std::string str;
 
-    str = to_string(std::make_shared<Json>());
-    if (str != "none") retVal += "\nCould not stringify Json, expected none, got " + str + "";
+    str = to_string(Json());
+    if (str != "null") retVal += "\nCould not stringify Json, expected null, got " + str + "";
 
-    str = to_string(std::make_shared<JsonNull>());
+    str = to_string(Json(Null()));
     if (str != "null") retVal += "\nCould not stringify JsonNull, expected null, got " + str + "";
 
-    str = to_string(std::make_shared<JsonBool>(false));
+    str = to_string(Json(false));
     if (str != "false") retVal += "\nCould not stringify JsonBool, expected false, got " + str + "";
 
-    str = to_string(std::make_shared<JsonBool>(true));
+    str = to_string(Json(true));
     if (str != "true") retVal += "\nCould not stringify JsonBool, expected true, got " + str + "";
 
-    str = to_string(std::make_shared<JsonInt>(10));
+    str = to_string(Json(10));
     if (str != "10") retVal += "\nCould not stringify JsonInt, expected 10, got " + str + "";
 
-    str = to_string(std::make_shared<JsonDouble>(3.1415));
-    if (str != "3.141500") retVal += "\nCould not stringify JsonDouble, expected 3.141500, got " + str + "";
+    str = to_string(Json(3.1415));
+    if (str != "3.141500000") retVal += "\nCould not stringify JsonDouble, expected 3.141500000, got " + str + "";
 
-    str = to_string(std::make_shared<JsonString>("Testing with \""));
+    str = to_string(Json(9.34323324234e-10));
+    if (str != "9.343233242e-10") retVal += "\nCould not stringify JsonDouble, expected 9.343233242e-10, got " + str + "";
+
+    str = to_string(Json(3.0));
+    if (str != "3.000000000") retVal += "\nCould not stringify JsonDouble, expected 3.000000000, got " + str + "";
+
+    str = to_string(Json("Testing with \""));
     if (str != "\"Testing with \\\"\"") retVal += "\nCould not stringify JsonString, expected \"Testing with \\\"\", got " + str + "";
 
-    Binary_t bin = std::make_shared<Binary>(sizeof(uint64_t));
-    *((uint64_t*)bin->data) = (uint64_t) -1;
-    str = to_string(std::make_shared<JsonBinary>(bin));
+    Binary bin = Binary(sizeof(uint64_t));
+    *((uint64_t*)bin.data.data()) = (uint64_t) -1;
+    str = to_string(Json(std::move(bin)));
     if (str != "\"FFFFFFFFFFFFFFFF\"") retVal += "\nCould not stringify JsonBinary, expected \"FFFFFFFFFFFFFFFF\", got " + str + "";
 
-    JsonObject_t head = std::make_shared<JsonObject>();
-    head->value["null"] = std::make_shared<JsonNull>();
-    head->value["bool"] = toJson(true);
-    head->value["int"] = toJson(0);
-    head->value["double"] = toJson(3.1415);
-    head->value["string"] = toJson("testing how this work");
-    head->value["arr"] = std::make_shared<JsonArray>();
-    head->value["obj"] = std::make_shared<JsonObject>();
+    Json head = Object();
+    head.as<Object>()["null"] = Null();
+    head.as<Object>()["bool"] = true;
+    head.as<Object>()["int"] = 0;
+    head.as<Object>()["double"] = 3.1415;
+    head.as<Object>()["string"] = "testing how this work";
+    head.as<Object>()["arr"] = Array();
+    head.as<Object>()["obj"] = Object();
 
-    JsonArray_t arr =  std::make_shared<JsonArray>();
-    head->value["fill_arr"] = arr;
-    arr->value.push_back(toJson(0));
-    arr->value.push_back(toJson(1));
-    arr->value.push_back(toJson(2));
-    arr->value.push_back(toJson(3));
+    Json arr = Array();
+    arr.as<Array>().push_back(0);
+    arr.as<Array>().push_back(1);
+    arr.as<Array>().push_back(2);
+    arr.as<Array>().push_back(3);
+    head.as<Object>()["fill_arr"] = arr;
 
     std::stringstream os;
-    EncodingOption sorted(EncodingFlags::EF_JSON_SORT_KEY);
-    head->write(&os, sorted, StreamFormat::JSON);
+    jsonSerializer::write(head, os, jsonSerializer::EncodingFlags::SORT_KEY);
     if (os.str() != ExpectSorted)
         retVal += "\nInvalid sorted tree to_string, expected \n    " + ExpectSorted + "\ngot:\n    " + os.str();
 
@@ -117,9 +123,9 @@ std::string testJsonToTxt(){
         retVal += "\nInvalid unsorted tree to_string, expected \n    " + ExpectNotSorted + "\ngot:\n    " + str;
 
     std::stringstream ss;
-    EncodingOption opt;
-    opt.ident = EncodingOption::MAX_INDENT_AS_TAB;
-    head->write(&ss, opt, StreamFormat::JSON);
+    jsonSerializer::EncodingOption opt;
+    opt.setIndent(jsonSerializer::EncodingOption::MAX_INDENT_AS_TAB);
+    write(head, ss, opt);
     if (ss.str() != ExpectWS )
         retVal += "\nInvalid tree to_string with ws, expected \n    " + ExpectWS + "\n got \n    " + ss.str();
 
