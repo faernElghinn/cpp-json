@@ -10,7 +10,8 @@
 #include <stddef.h>
 #include <sys/types.h>
 
-namespace elladan { namespace json {
+namespace elladan { 
+namespace json {
 
 class Utf8 {
 public:
