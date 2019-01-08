@@ -12,7 +12,7 @@ project ("ElladanJson") # http://www.cmake.org/cmake/help/cmake-2-8-docs.html#co
 file(GLOB_RECURSE source "src/*.cpp")
 file(GLOB_RECURSE header "src/*.h")
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wshadow ")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Wshadow ")
 SET_SOURCE_FILES_PROPERTIES( ${source} ${header} PROPERTIES LANGUAGE CXX )
 add_library(ElladanJson STATIC ${source} )
 
@@ -33,21 +33,11 @@ add_executable(jsonTest test/JsonTest.cpp)
 target_link_libraries(jsonTest ElladanHelper ElladanJson)
 add_test(jsonTest jsonTest)
 
-add_executable(serializer2JsonTest test/JsonSerializer2String.cpp)
-target_link_libraries(serializer2JsonTest ElladanJson ElladanHelper)
-add_test(serializer2JsonTest serializer2JsonTest)
+add_executable(jsonSerTest test/JsonSerializer.cpp)
+target_link_libraries(jsonSerTest ElladanHelper ElladanJson)
+add_test(jsonSerTest jsonSerTest)
 
-add_executable(serializerFromJsonTest test/JsonSerializerFromString.cpp)
-target_link_libraries(serializerFromJsonTest ElladanJson ElladanHelper)
-add_test(serializerFromJsonTest jsonTest)
-
-add_executable(bsonFromBson test/BsonSerializerFromJson.cpp)
-target_link_libraries(bsonFromBson ElladanJson ElladanHelper)
-add_test(bsonFromBson bsonFromBson)
-
-add_executable(bson2Bson test/BsonSerializer2Json.cpp)
-target_link_libraries(bson2Bson ElladanJson ElladanHelper)
-add_test(bson2Bson bson2Bson)
-
-
+add_executable(jsonDeserTest test/JsonDeserializer.cpp)
+target_link_libraries(jsonDeserTest ElladanHelper ElladanJson)
+add_test(jsonDeserTest jsonDeserTest)
 
