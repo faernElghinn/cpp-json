@@ -25,6 +25,7 @@
 #include "../utf.h"
 
 using std::to_string;
+using elladan::json::Json;
 
 namespace elladan {
 namespace json {
@@ -32,8 +33,18 @@ namespace jsonSerializer {
 
 void Position::throwErr(const std::string& err) const{
    std::ostringstream str;
-   str << err << " at line " << line << " column " << col;
+   str << err << " at line " << line+1 << " column " << col+1;
    throw Exception(str.str());
+}
+
+void Position::update(char c){
+   if (c == '\n') {
+      ++line;
+      col = 0;
+   }
+   else{
+      ++col;
+   }
 }
 
 void JsonReader::throwErr(const std::string& err) const {
@@ -46,95 +57,112 @@ JsonReader::ErrTracker::ErrTracker(const std::string& err, JsonReader& r)
 { }
 
 char JsonReader::ErrTracker::peekNext(bool skipWs) {
-   std::istream* istr = &reader.iStr;
-   if (!reader.buffer.eof()) 
-      istr = &reader.buffer;
-   std::istream& s = *istr;
-
-   s >> ( skipWs ? std::skipws : std::noskipws );
-   return s.peek();
+   for (int i = 0; i < reader.buffer.size(); i++) {
+      if (!isspace(reader.buffer[i]) || !skipWs)
+         return reader.buffer[i];
+   }
+   do{
+      int c = reader.iStr.get();
+      if (c != EOF)
+         reader.buffer.push_back(c);
+      if (!isspace(c) || !skipWs)
+        return c;
+   } while (reader.iStr);
+   reader.throwErr(error);
+   return '0';
 }
-char JsonReader::ErrTracker::getNext(bool skipWs) {
-   std::istream* istr = &reader.iStr;
-   if (!reader.buffer.eof())
-      istr = &reader.buffer;
-   std::istream& s = *istr;
 
-   char c;
-   s >> ( skipWs ? std::skipws : std::noskipws );
-   s.get(c);
-   return c;
+char JsonReader::ErrTracker::getNext(bool skipWs) {
+   while (!reader.buffer.empty()) {
+      auto c = reader.buffer.front();
+      reader.buffer.erase(0,1);
+      reader.pos.update(c);
+      if (!isspace(c) || !skipWs)
+         return c;
+   }
+   do{
+      int c = reader.iStr.get();
+      reader.pos.update(c);
+      if (!isspace(c) || !skipWs)
+        return c;
+   } while (reader.iStr);
+   reader.throwErr(error);
+   return EOF;
 }
 std::string JsonReader::ErrTracker::peekWord() {
-   if (reader.buffer.eof()) {
-      std::string retVal;
-      reader.iStr >> retVal;
-      reader.buffer << retVal;
-      return retVal;
+   std::string ss;
+   for (int i = 0; i < reader.buffer.size(); i++) {
+      char c = reader.buffer[i];
+      if (!isalnum(c) && c != '.' && c != '-' && c != '+') {
+         if (!ss.empty())
+            return ss;
+      }
+      else
+         ss.push_back(c);
    }
-   return reader.buffer.str();
+   do {
+      int c = reader.iStr.get();
+      if (c != EOF)
+         reader.buffer.push_back(c);
+      if (!isalnum(c) && c != '.' && c != '-' && c != '+') {
+         if (!ss.empty())
+            return ss;
+      }
+      if (c != EOF)
+         ss.push_back(c);
+   } while (reader.iStr);
+
+   if (ss.empty())
+      reader.throwErr(error);
+   return ss;
 }
 std::string JsonReader::ErrTracker::getWord() {
-   if (!reader.buffer.eof()) {
-      std::string retVal = ;
-      reader.iStr >> retVal;
-      reader.buffer << retVal;
-      return retVal;
+   std::string ss;
+   while (!reader.buffer.empty()) {
+      auto c = reader.buffer.front();
+      if (!isalnum(c) && c != '.' && c != '-' && c != '+') {
+         if (!ss.empty())
+            return ss;
+      }
+      else
+         ss.push_back(c);
+      reader.pos.update(c);
+      reader.buffer.erase(0,1);
    }
-   return reader.buffer.str ();
-}
-inline void JsonReader::ErrTracker::fillBuffer() {
-
-}
-
-
-
-int JsonReader::ErrTracker::operator >>(char& cur) {
-   do {
-      if (!_str._last.empty()) {
-         cur = _str._last.back();
-         _str._last.pop_back();
-      }
-      else if (!((*_str.iStr) >> cur)) {
-         if (!_err.empty())
-            _str.throwErr(_err);
-         return 0;
-      }
-
-      if (_skip_comment && _str.flags.test(DecodingFlags::IGNORE_COMMENT) && cur == '/') {
-         char prev = cur;
-         (*_str.iStr) >> cur;
-
-         // '/*' comment : skip until '*/' is found.
-         if (cur == '*') {
-            bool prev_is_star = false;
-            do {
-               (*_str.iStr) >> cur;
-               if (prev_is_star && cur == '/')
-                  break;
-               prev_is_star = cur == '*';
-            } while (1);
-            (*_str.iStr) >> cur;
-         }
-
-         // '//' comment : skip remaining of the line.
-         else if (cur == '/') {
-            do {
-               (*_str.iStr) >> cur;
-            } while (cur != '\n');
-            (*_str.iStr) >> cur;
-         }
-
-         // Not a comment, keep last read character.
-         else {
-            _str.pushBack(cur);
-            cur = prev;
+   do{
+      int c = reader.iStr.get();
+      if (!isalnum(c) && c != '.' && c != '-' && c != '+') {
+         if (!ss.empty()) {
+            reader.buffer.push_back(c);
+            return ss;
          }
       }
-   } while (_skip_ws && std::isspace(cur));
-   return 1;
-}
+      reader.pos.update(c);
+      if (c != EOF)
+         ss.push_back(c);
+   } while (reader.iStr);
 
+   if (ss.empty())
+      reader.throwErr(error);
+   return ss;
+}
+std::string JsonReader::ErrTracker::get(int count) {
+   std::string ss = reader.buffer.substr(0, count);
+   ss.reserve(count);
+
+   for (auto ite : ss)
+      reader.pos.update(ite);
+
+   while (ss.size() < count) {
+      char c = reader.iStr.get();
+      reader.pos.update(c);
+      if (!reader.iStr) 
+         reader.throwErr(error);
+      ss.push_back(c);
+   }
+
+   return ss;
+}
 
 JsonReader::JsonReader(std::istream& reader, DecodingOption flag) :
    iStr(reader), flags(flag) {
@@ -143,39 +171,23 @@ JsonReader::JsonReader(std::istream& reader, DecodingOption flag) :
    iStr >> std::noskipws;
 }
 
-JsonReader::ErrTracker JsonReader::operator()(std::string err, bool skipWs, bool skipCom) {
-   if (!err.empty())
-      err = std::string("Unexpected EOF while ") + err;
+JsonReader::ErrTracker JsonReader::operator()(std::string errMessage) {
+   if (!errMessage.empty())
+      errMessage = std::string("Unexpected EOF while ") + errMessage;
    else
-      err = "Unexpected EOF";
-   return ErrTracker(err, skipWs, skipCom, *this);
+      errMessage = "Unexpected EOF";
+   return ErrTracker(errMessage, *this);
 }
 
-inline void JsonReader::pushBack(char c) {
-   _last.push_back(c);
-}
-
-int JsonReader::operator >>(char& c) {
-   return (*this)("", false, flags.test(DecodingFlags::IGNORE_COMMENT)) >> c;
-}
-
-inline void JsonReader::consume() { 
-   _last.pop_back(); 
-}
-
-char JsonReader::peek(bool skipWs) {
-   return operator()("",skipWs,flags.test(DecodingFlags::IGNORE_COMMENT)).peek();
-}
-
-std::string JsonReader::jsonToString() {
+static std::string jsonToString(JsonReader& reader) {
    std::string retVal;
    char letter;
 
    do {
-      (*this)("Could not decode string : Unexpected end of file.", false) >> letter;
+      letter = reader("Could not decode string : Unexpected end of file.").getNext(false);
       switch (letter) {
          case '\\': {
-            (*this)("decoding escaped char") >> letter;
+            letter = reader("decoding escaped char").getNext(false);
 
             switch (letter) {
                case '"':    retVal += "\"";  break;
@@ -187,33 +199,30 @@ std::string JsonReader::jsonToString() {
                case 'r':    retVal += "\r";  break;
                case 't':    retVal += "\t";  break;
                case '0':
-                  if (!flags.test(DecodingFlags::ALLOW_NULL))
-                     (*this).throwErr("Found null value reader string");
+                  if (!reader.flags.test(DecodingFlags::ALLOW_NULL))
+                     reader.throwErr("Found null value reader string");
                   retVal += "\0";
                   break;
 
                case 'u': {
                   int sum = 0;
                   std::string val;
-                  for (int i = 0; i < 4; i++) {
-                     (*this)("decoding UTF encoded char") >> letter;
-                     val.push_back(letter);
-                  }
+                  for (int i = 0; i < 4; i++) 
+                     val.push_back(reader("decoding UTF encoded char").getNext(false));
                   sum = std::stoi(val, 0, 16);
 
                   if (sum >= 0xDC00)
-                     throwErr("Invalid unicode escape");
+                     reader.throwErr("Invalid unicode escape");
 
                   if (sum >= 0xD800) {
                      val.clear();
                      for (int i = 0; i < 4; i++) {
-                        (*this)("decoding UTF encoded char") >> letter;
-                        val.push_back(letter);
+                        val.push_back(reader("decoding UTF encoded char").getNext(false));
                      }
                      int sum2 = std::stoi(val, 0, 16);
 
                      if (sum2 < 0xDC00)
-                        throwErr("Invalid unicode escape");
+                        reader.throwErr("Invalid unicode escape");
 
                      sum = ((sum - 0xD800) << 10) + (sum2 - 0xDC00) + 0x10000;
                   }
@@ -221,7 +230,7 @@ std::string JsonReader::jsonToString() {
                   char unicode[9];
                   size_t length;
                   if (Utf8::encode(sum, unicode, &length))
-                     throwErr("Could not process unicode");
+                     reader.throwErr("Could not process unicode");
 
                   unicode[length] = '\0';
                   retVal += unicode;
@@ -229,7 +238,7 @@ std::string JsonReader::jsonToString() {
                break;
 
                default:
-                  throwErr("Invalid escape");
+                  reader.throwErr("Invalid escape");
                   break;
             }
          }
@@ -240,8 +249,8 @@ std::string JsonReader::jsonToString() {
             return retVal;
 
          case '\0':
-            if (!flags.test(DecodingFlags::ALLOW_NULL))
-               throwErr("Found null value reader string");
+            if (!reader.flags.test(DecodingFlags::ALLOW_NULL))
+               reader.throwErr("Found null value reader string");
             /* no break */
          default:
             retVal.push_back(letter);
@@ -250,247 +259,191 @@ std::string JsonReader::jsonToString() {
    } while (1);
 }
 
-static std::optional<Json> parseObject(JsonReader& reader) {
-   char cur = reader.peek();
-
-   printf("testing Object with %c\n", cur);
-
-   if (cur != '{') 
+static std::optional<json::Json> parseObject(JsonReader& reader) {
+   if (reader().peekNext(true) != '{') 
       return std::nullopt;
+   reader().getNext(true);
 
-   printf("found Object\n");
+   json::Object obj;
+   char cur = reader("looking for the end of the object").peekNext(true);
 
-   Object obj;
-
-   reader.consume();
-   cur = reader("looking for the end of the object").peek();
-
+   bool firstElement = true;
    while (cur != '}') {
+      if (cur != ',' && !firstElement && !reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR))
+         reader.throwErr("Expected an element delimiter \',\'");
+
+      while (cur == ',') {
+         reader().getNext(true);
+         cur = reader("looking for next element").peekNext(true);
+         if (!reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR)) 
+            break;
+      }
+      if (cur == '}')
+         break;
+
+      firstElement = false;
+
       // Get the key.
       Position startOfLine = reader.pos;
       auto key = reader.extractNext();
       if (!key.has_value() || !key->isOfType<std::string>())
          startOfLine.throwErr("Missing key");
-
-      startOfLine = reader.pos;
       if (reader.flags.test(DecodingFlags::REJECT_DUPLICATE) && obj.count(key->as<std::string>()))
          startOfLine.throwErr("Duplicate value");
 
       // Get ":"
-      startOfLine = reader.pos;
-      reader("looking for key value delimiter \':\'") >> cur;
-      if (cur == ':') { }
+      cur = reader("looking for key value delimiter \':\'").peekNext(true);
+      if (cur == ':') reader().getNext();
       else if (!reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR))
-         startOfLine.throwErr("Expecting array key value delimiter \":\"");
+         reader.throwErr("Expecting array key value delimiter \":\"");
 
       // Read the associated value.
       startOfLine = reader.pos;
       auto child = reader.extractNext();
       if (!child.has_value())
          startOfLine.throwErr("File ended before getting the value");
-      obj.emplace(key->as<std::string>(), std::move(child));
+      obj.setInplace(key->as<std::string>(), std::move(child.value()));
 
-      // Check if there is are remaining values,
-      do {
-         cur = reader("looking for element delimiter \',\' or closing bracket \'}\'").peek();
-         if (cur == ',') reader.consume();
-         else if (cur == '}') break;
-         else if (reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR)) { /* Do Nothing */ }
-         else reader.throwErr("Expected an element delimiter \',\'");
-      } while (cur != ',');
+      cur = reader("looking for the end of the object").peekNext(true);
    }
-   reader.consume();
+   reader().getNext();
 
    return obj;
 }
 
-
-static std::optional<Json> parseArray(JsonReader& reader) {
-   char cur = reader.peek();
-
-   printf("testing Array with %c\n", cur);
-
-   if (cur != '[') 
+static std::optional<json::Json> parseArray(JsonReader& reader) {
+   if (reader().peekNext(true) != '[') 
       return std::nullopt;
-
-   printf("found Array \n");
+   reader().getNext(true);
 
    Array arr;
-
-   reader.consume();
-   cur = reader("looking for the end of the array").peek();
+   char cur = reader("looking for the end of the array").peekNext(true);
+   bool firstElement = true;
    while (cur != ']') {
-      // Read the associated value.
-      auto child = reader.extractNext();
 
+      if (cur != ',' && !firstElement && !reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR))
+         reader.throwErr("Expected an element delimiter \',\'");
+
+      while (cur == ',') {
+         reader().getNext(true);
+         cur = reader("looking for next element").peekNext(true);
+         if (!reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR)) 
+            break;
+      }
+      if (cur == ']')
+         break;
+
+      firstElement = false;
+
+      // Read the associated value.
       Position pos = reader.pos;
+      auto child = reader.extractNext();
       if (!child.has_value())
          pos.throwErr("File ended before getting the value");
       arr.push_back(child);
 
-      // Check if there is are remaining values,
-      do{
-         cur = reader("looking for element delimiter \',\' or closing bracket \']\'").peek();
-         if (cur == ',') reader.consume();
-         else if (cur == ']') break;
-         else if (reader.flags.test(DecodingFlags::ALLOW_COMMA_ERR)) { /* Do Nothing */ }
-         else reader.throwErr("Expected an element delimiter \',\'");
-      } while (cur != ',');
+      cur = reader("looking for next element").peekNext(true);
    }
+   reader().getNext();
 
    return arr;
 }
 
-static std::optional<Json> parseString(JsonReader& reader) {
-   char cur = reader.peek();
-
-
-   printf("testing string with %c\n", cur);
-   if (cur != '"') 
+static std::optional<json::Json> parseString(JsonReader& reader) {
+   if (reader().peekNext(true) != '"') 
       return std::nullopt;
 
-   printf("testing string\n");
-
-   reader.consume();
-   return reader.jsonToString();
+   reader().getNext(true);
+   return jsonToString(reader);
 }
 
-static std::optional<Json> parseNumber(JsonReader& reader) {
-   static const std::string validChar = "0123456789.eE";
-   char cur = reader.peek();
-
-   printf("testing digit %c\n", cur);
-   if (!std::isdigit(cur) && cur != '-' && cur != '+')
-      return std::nullopt;
-
-
-   printf("found digit\n");
-
-   std::string str;
-   str.reserve(32);
-
-   Position pos = reader.pos;
-   do {
-      reader.consume();
-      str.push_back(cur);
-      cur = reader.peek(false);
-   } while(validChar.find(cur) != std::string::npos);
+static std::optional<json::Json> parseNumber(JsonReader& reader) {
+   std::string str = reader().peekWord();
 
    long int asInt;
-   if (elladan::parseString(str, asInt) == str.size())
+   if (elladan::parseString(str, asInt) == str.size()){
+      reader().getWord();
       return asInt;
+   }
 
    double asDouble;
-   if (elladan::parseString(str, asDouble) == str.size())
+   if (elladan::parseString(str, asDouble) == str.size()) {
+      reader().getWord();
       return asDouble;
+   }
 
-   pos.throwErr("Could not parse something that look like a number");
    return std::nullopt;
 }
 
-static std::optional<Json> parseBool(JsonReader& reader) {
-   static const std::string validChar = "truefals";
-   char cur = tolower(reader.peek());
+static std::optional<json::Json> parseBool(JsonReader& reader) {
+   std::string str = elladan::toLower(reader().peekWord());
+   if (str == "true") {
+      reader().getWord();
+      return json::Json(true);
+   }
+   if (str == "false") {
+      reader().getWord();
+      return json::Json(false);
+   }
 
-   printf("testing bool with %c\n", cur);
-   if (cur != 't' && cur != 'f')
-      return std::nullopt;
-
-   printf("found bool\n");
-
-   bool result = cur == 't' | cur == 'T';
-   do {
-      reader.consume();
-      cur = tolower(reader.peek(false));
-   } while(validChar.find(cur) != std::string::npos);
-
-   return Json(result);
+   return std::nullopt;
 }
 
-static std::optional<Json> parseNull(JsonReader& reader) {
+static std::optional<json::Json> parseNull(JsonReader& reader) {
    static const std::string expected = "null";
 
-   for (int i = 0; i < expected.size(); i++) {
-      char cur = reader.peek(false);
-      printf("testing null with %c\n", cur);
-      if (tolower(cur) != expected[i]) {
-         reader.pushBack(expected[i]);
-         return std::nullopt;
-      }
+   auto v = reader().peekWord();
+   std::string str = elladan::toLower(v);
+   if (str == "null") {
+      if (!reader.flags.test(DecodingFlags::ALLOW_NULL))
+         reader.throwErr("Forbidden null found");
 
-      reader.consume();
+      reader().getWord();
+      return json::Json(Null());
    }
 
-   if (!reader.flags.test(DecodingFlags::ALLOW_NULL))
-      reader.throwErr("Forbidden null found");
-
-   printf("Found null\n");
-
-   return Null();
+   return std::nullopt;
 }
 
-static std::optional<Json> parseUUID(JsonReader& reader) {
-   char cur;
+static std::optional<json::Json> parseUUID(JsonReader& reader) {
 
-   printf("testing uuid with %c\n", reader.peek());
-
-   if (tolower(reader.peek()) != 'u')
+   if (tolower(reader().peekNext(true)) != 'u')
       return std::nullopt;
-   
 
-   printf("got UUID\n");
+   reader().getNext(true);
 
-   reader.consume();
-   if (reader.peek() != '"') {
-      reader.pushBack('u');
-      return std::nullopt;
-   }
-   reader.consume();
+   if (reader("Fetching start of UUID").getNext(false) != '"') 
+      reader.throwErr("Invalid UUID format");
 
-   std::string str;
    UUID uuid;
-   str.reserve(uuid.getSize());
+   std::string str = reader("Reading UUID").get(uuid.getStringSize() + 1);
+   if (str.size() != uuid.getStringSize() + 1 || str.back() != '"')
+      reader.throwErr("Invalid UUID");
 
-   for (int i = 0; i < uuid.getSize() + 1; i++) {
-      reader >> cur;
-      if (cur == '"')
-         break;
-      else if (!std::isalpha(cur) && cur != '-') 
-         reader.throwErr("Invalid UUID");
-      str.push_back(cur);
-   }
+   str.pop_back();
 
    return UUID::fromString(str);
 }
 
-static std::optional<Json> parseBinary(JsonReader& reader) {
-   char cur;
-
-   printf("testing binary with %c\n", reader.peek());
-   if (tolower(reader.peek()) != 'b')
+static std::optional<json::Json> parseBinary(JsonReader& reader) {
+   if (tolower(reader().peekNext(true)) != 'b')
       return std::nullopt;
    
-   reader.consume();
-   if (reader.peek() != '"') {
-      reader.pushBack('b');
-      return std::nullopt;
-   }
-   reader.consume();
-
-   printf("got binary!\n");
+   reader().getNext();
+   
+   if (reader("Fetching start of Binary").getNext(false) != '"') 
+      reader.throwErr("Invalid Binary format");
 
    std::stringstream str;
+   auto src = reader("Reading binary");
    do {
-      reader >> cur;
-      if (!std::isalpha(cur)) {
-         if (cur == '"')
-            break;
-         reader.throwErr("Invalid Binary");
-      }
-      str << (cur);
+      char cur = src.getNext(false);
+      if (cur == '"')
+         break;
+      str << cur;
    } while(true);
 
-   Json bin = std::move(Binary()); //(Binary(str.str()));
+   json::Json bin = std::move(Binary(str.str())); // FIXME: should include length!
    return bin;
 }
 
@@ -499,7 +452,7 @@ std::vector<JsonReader::parse> JsonReader::readType = {
    &parseUUID, &parseBinary
 };
 
-std::optional<Json> JsonReader::extractNext() {
+std::optional<json::Json> JsonReader::extractNext() {
    for (auto ite : readType) {
       auto res = ite(*this);
       if (res.has_value())
@@ -508,15 +461,15 @@ std::optional<Json> JsonReader::extractNext() {
    return std::nullopt;
 }
 
-Json read(std::istream& in_stream, DecodingOption flag) {
+json::Json read(std::istream& in_stream, DecodingOption flag) {
    JsonReader reader(in_stream, flag);
    auto res = reader.extractNext();
    return res.value_or(Json());
 }
 
-std::vector<Json> extract(std::istream* in_stream, DecodingOption flag, const std::string& path) {
-   Json obj = read(in_stream, flag);
-   std::vector<Json> retVal;
+std::vector<json::Json> extract(std::istream& in_stream, DecodingOption flag, const std::string& path) {
+   json::Json obj = read(in_stream, flag);
+   std::vector<json::Json> retVal;
 
    for (auto ite : obj.get(path))
       retVal.push_back(*ite);

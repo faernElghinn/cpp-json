@@ -130,6 +130,8 @@ std::string testJsonToTxt(){
         retVal += "\nInvalid tree to_string with ws, expected \n    " + ExpectWS + "\n got \n    " + ss.str();
 
     return retVal;
+
+    // FIXME: test extended type!
 }
 
 int main(int argc, char **argv) {
