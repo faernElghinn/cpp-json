@@ -5,241 +5,168 @@
 //  *      Author: daniel
 //  */
 
-// #include "BsonSerializer.h"
+#include "BsonWriter.h"
 
-// #include <elladan/Exception.h>
-// #include <elladan/FlagSet.h>
-// #include <elladan/Stringify.h>
-// #include <elladan/UUID.h>
-// #include <stdio.h>
-// #include <algorithm>
-// #include <cstdint>
-// #include <memory>
-// #include <utility>
+#include <elladan/Exception.h>
+#include <elladan/FlagSet.h>
+#include <elladan/Stringify.h>
+#include <elladan/UUID.h>
+#include <elladan/Binary.h>
+#include <stdio.h>
+#include <algorithm>
+#include <cstdint>
+#include <memory>
+#include <utility>
 
-// using std::to_string;
-
-
-// namespace elladan { namespace json {
+using std::to_string;
 
 
-// constexpr char DOC_END = 0x00;
-// constexpr char ELE_TYPE_DOUBLE = 0x01;
-// constexpr char ELE_TYPE_UTF_STRING = 0x02;
-// constexpr char ELE_TYPE_OBJECT = 0x03;
-// constexpr char ELE_TYPE_ARRAY = 0x04;
-// constexpr char ELE_TYPE_BIN = 0x05;
-// //constexpr char ELE_TYPE_DEPRECATED = 0x06;
-// //constexpr char ELE_TYPE_OBJECT_ID = 0x07;
-// constexpr char ELE_TYPE_BOOL = 0x08;
-// //constexpr char ELE_TYPE_UTC_DATETIME= 0x09;
-// constexpr char ELE_TYPE_NULL = 0x0A;
-// //constexpr char ELE_TYPE_REGEX = 0x0B;
-// //constexpr char ELE_TYPE_DEPRECATED = 0x0C;
-// //constexpr char ELE_TYPE_JAVASCRIPT = 0x0D;
-// //constexpr char ELE_TYPE_DEPRECATED = 0x0E;
-// //constexpr char ELE_TYPE_JAVASCRIPT_SCOPED = 0x0F;
-// //constexpr char ELE_TYPE_INT32 = 0x10;
-// //constexpr char ELE_TYPE_UINT64 = 0x11;
-// constexpr char ELE_TYPE_INT64 = 0x12;
-// //constexpr char ELE_TYPE_DECIMAL128 = 0x13;
-// //constexpr char ELE_TYPE_MIN = 0xFF;
-// //constexpr char ELE_TYPE_MAX = 0x7F;
+namespace elladan { namespace json { namespace bsonSerializer {
 
-// class BOStream {
-// public :
-//    std::ostream* _out;
-//    std::string _str;
-
-//    BOStream(std::ostream* out)  : _out(out) {
-//       _str.reserve(1024);
-//    }
-//    ~BOStream() {
-//       _out->write(_str.c_str(), _str.size());
-//    }
-
-//    BOStream& operator << (char c){
-//       _str.append(&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& operator << (int32_t c){
-//       _str.append((const char*)&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& operator << (int64_t& c){
-//       _str.append((const char*)&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& operator << (uint32_t c){
-//       _str.append((const char*)&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& operator << (uint64_t& c){
-//       _str.append((const char*)&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& operator << (float c){
-//       _str.append((const char*)&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& operator << (double& c){
-//       _str.append((const char*)&c, sizeof(c));
-//       return *this;
-//    }
-//    BOStream& write(const void* data, size_t size){
-//       _str.append((const char*) data, size);
-//       return *this;
-//    }
-//    BOStream& operator<< (const std::string& str){
-//       _str += str;
-//       _str.push_back(DOC_END);
-//       return *this;
-//    }
-//    size_t pos() const {
-//       return _str.size();
-//    }
-// };
-
-// char BsonSerializer::getBsonType(const Json* ele) //throw Error
-// {
-//    if (!ele) throw Exception("NONE json not supported ");
-//    switch (ele->getType()) {
-//       case JsonType::JSON_NULL:       return ELE_TYPE_NULL;
-//       case JsonType::JSON_BOOL:       return ELE_TYPE_BOOL;
-//       case JsonType::JSON_INTEGER:    return ELE_TYPE_INT64;
-//       case JsonType::JSON_DOUBLE:     return ELE_TYPE_DOUBLE;
-//       case JsonType::JSON_STRING:     return ELE_TYPE_UTF_STRING;
-//       case JsonType::JSON_ARRAY:      return ELE_TYPE_ARRAY;
-//       case JsonType::JSON_OBJECT:     return ELE_TYPE_OBJECT;
-//       case JsonType::JSON_BINARY:     return ELE_TYPE_BIN;
-//       case JsonType::JSON_UUID:       return ELE_TYPE_BIN;
-
-//       default:
-//          throw Exception("Unsupported Json_t type : " + ele->getType());
-//    }
-// }
-
-// class SizeMarker{
-// public:
-//    SizeMarker (BOStream& out) : _out(out) {
-//       _init_pos = out.pos();
-//       _out << (uint32_t) 0;
-//    }
-//    ~SizeMarker(){
-//       int end_pos = _out.pos();
-//       uint32_t size = end_pos - _init_pos;
-//       _out._str.replace(_init_pos, sizeof(size), (const char*)&size, sizeof(size));
-//       return;
-//    }
-
-// protected:
-//    size_t _init_pos;
-//    BOStream& _out;
-// };
-
-// inline void BsonSerializer::writeDoc(BOStream& out, const elladan::VMap<std::string, Json_t>& eleList, EncodingOption flag){
-//    SizeMarker marker (out);
-//    for (auto& ite : eleList) {
-//       // print type
-//       out << getBsonType(ite.second.get());
-//       // print name
-//       out << ite.first;
-//       // print value
-//       writeBson(out, ite.second.get(), flag);
-//    }
-//    out << DOC_END;
-// }
-
-// void BsonSerializer::writeBson(BOStream& out, const Json* ele, EncodingOption flag) {
-
-//    switch (ele->getType()) {
-//       case JsonType::JSON_NULL:
-//          // Add nothing.
-//          break;
-
-//       case JsonType::JSON_BOOL:
-//          out << (char) ((JsonBool*)ele)->value;
-//          break;
-
-//       case JsonType::JSON_INTEGER:
-//          out << ((JsonInt*)ele)->value;
-//          break;
-
-//       case JsonType::JSON_DOUBLE:
-//          out << ((JsonDouble*)ele)->value;
-//          break;
-
-//       case JsonType::JSON_STRING:
-//          out << (uint32_t) ((JsonString*)ele)->value.size() + 1; // for the DOC_END char.
-//          out << ((JsonString*)ele)->value;
-//          break;
-
-//       case JsonType::JSON_ARRAY:
-//       {
-//          elladan::VMap<std::string, Json_t> eleList;
-//          int i = 0;
-//          for (Json_t ite : static_cast<const JsonArray*>(ele)->value)
-//             eleList[to_string(i++)] = ite;
-
-//          writeDoc(out, eleList, flag);
-//       } break;
-
-//       case JsonType::JSON_OBJECT:
-//          if (flag.test(EncodingFlags::EF_JSON_SORT_KEY)) {
-//             elladan::VMap<std::string, Json_t> eleList;
-//             int i = 0;
-//             for (Json_t ite : static_cast<const JsonArray*>(ele)->value)
-//                eleList[to_string(i++)] = ite;
-//             std::stable_sort(eleList.begin(), eleList.end());
-//             writeDoc(out, eleList, flag);
-//          }
-//          else
-//             writeDoc(out, static_cast<const JsonObject*>(ele)->value, flag);
-//          break;
-
-//       case JsonType::JSON_BINARY:
-//       {
-//          JsonBinary* bin = ((JsonBinary*)ele);
-//          if (!bin->value) {
-//             out << (uint32_t)0;
-//             out << (char) 0x02;
-//          }
-//          else {
-//             out << (uint32_t)bin->value->size;
-//             out << (char) 0x02;
-//             out.write(bin->value->data, bin->value->size);
-//          }
-//       } break;
-
-//       case JsonType::JSON_UUID:
-//       {
-//          JsonUUID* uuid = ((JsonUUID*)ele);
-//          out << (uint32_t)uuid->value.getSize();
-//          out << (char) 0x04;
-//          out.write(uuid->value.getRaw(), uuid->value.getSize());
-//       } break;
-
-//       default:
-//          throw Exception("Unsupported Json_t type : " + to_string(ele->getType()));
-//    }
-// }
-
-// void BsonSerializer::write(std::ostream* out, const Json* data, EncodingOption flag){
-//    BOStream str(out);
-//    switch (data->getType()) {
-//       case JSON_ARRAY:
-//       case JSON_OBJECT:
-//          writeBson(str, data, flag);
-//          break;
-
-//       default:
-//          throw Exception("Bson require that root object is either an object or an array. Is an " + to_string(data->getType()));
-//          break;
-//    }
-// }
+constexpr char DOC_END = 0x00;
+constexpr char ELE_TYPE_DOUBLE = 0x01;
+constexpr char ELE_TYPE_UTF_STRING = 0x02;
+constexpr char ELE_TYPE_OBJECT = 0x03;
+constexpr char ELE_TYPE_ARRAY = 0x04;
+constexpr char ELE_TYPE_BIN = 0x05;
+//constexpr char ELE_TYPE_DEPRECATED = 0x06;
+//constexpr char ELE_TYPE_OBJECT_ID = 0x07;
+constexpr char ELE_TYPE_BOOL = 0x08;
+//constexpr char ELE_TYPE_UTC_DATETIME= 0x09;
+constexpr char ELE_TYPE_NULL = 0x0A;
+//constexpr char ELE_TYPE_REGEX = 0x0B;
+//constexpr char ELE_TYPE_DEPRECATED = 0x0C;
+//constexpr char ELE_TYPE_JAVASCRIPT = 0x0D;
+//constexpr char ELE_TYPE_DEPRECATED = 0x0E;
+//constexpr char ELE_TYPE_JAVASCRIPT_SCOPED = 0x0F;
+//constexpr char ELE_TYPE_INT32 = 0x10;
+//constexpr char ELE_TYPE_UINT64 = 0x11;
+constexpr char ELE_TYPE_INT64 = 0x12;
+//constexpr char ELE_TYPE_DECIMAL128 = 0x13;
+//constexpr char ELE_TYPE_MIN = 0xFF;
+//constexpr char ELE_TYPE_MAX = 0x7F;
 
 
-// ///////////////////////////////////
+
+class SizeMarker{
+public:
+   SizeMarker (Serializer& s) : ser(s) {
+      _init_pos = ser.oStr.tellp();
+      ser << (int32_t) 0;
+   }
+   ~SizeMarker(){
+      int end_pos = ser.oStr.tellp();
+      ser.oStr.seekp(_init_pos);
+      int32_t size = end_pos - _init_pos;
+      ser << size;
+      ser.oStr.seekp(0, std::ios_base::end);
+   }
+
+protected:
+   int32_t _init_pos;
+   Serializer& ser;
+};
+
+Serializer::Serializer(std::ostream& out) 
+: oStr(out)
+{}
+
+Serializer& Serializer::operator <<(char c) {
+   oStr.write(&c, 1);
+   return *this;
+}
+Serializer& Serializer::operator <<(const char* str) {
+   oStr << str << DOC_END;
+   return *this;
+}
+Serializer& Serializer::operator <<(std::string& str) {
+   oStr << str << DOC_END;
+   return *this;
+}
+Serializer& Serializer::operator <<(const std::string& str) {
+   oStr << str << DOC_END;
+   return *this;
+}
+Serializer& Serializer::operator <<(int32_t v) {
+   oStr.write((const char*)&v, sizeof(v));
+   return *this;
+}
+Serializer& Serializer::write(void* data, size_t size){
+   oStr.write((const char*)data, size);
+   return *this;
+}
+Serializer& Serializer::operator <<(JsonType v) {
+   auto ite = writeMap.find(v);
+   if (ite == writeMap.end())
+      throw Exception("No serializer for json element" + to_string(v));
+   oStr << ite->second.first;
+   return *this;
+}
+
+void serObject(Serializer& s, const Json& ele) {
+   SizeMarker marker (s);
+   for (auto& ite : ele.as<Object>()) {
+      // print type
+      s << ite.second.getType();
+      // print name
+      s << ite.first;
+      // print value
+      s << ite.second;
+   }
+   s << DOC_END;
+}
+void serArray(Serializer& s, const Json& ele) {
+   SizeMarker marker (s);
+   int i = 0;
+   for (auto& ite : ele.as<Array>()) {
+      // print type
+      s << ite.getType();
+      // print name
+      s << to_string(i++);
+      // print value
+      s << ite;
+   }
+   s << DOC_END;
+}
+void serString(Serializer& s, const Json& ele) {
+   auto& str = ele.as<std::string>();
+   s << (int32_t) str.size() + 1 << str;
+}
+void serUUID(Serializer& s, const Json& ele) {
+   const UUID& uuid = ele.as<UUID>();
+   s << (int32_t) uuid.getSize() << (char)0x04;
+   s.write((void*)uuid.getRaw(), uuid.getSize());
+}
+void serBinary(Serializer& s, const Json& ele) {
+   const Binary& bin = ele.as<Binary>();
+   s << (int32_t) bin.size() << (char)0x00;
+   s.write((void*)bin.data.data(), bin.size());
+}
+
+elladan::VMap<JsonType, Serializer::writer> Serializer::writeMap = {
+   {Json::typeOf<Object>(),{ELE_TYPE_OBJECT, &serObject}},
+   {Json::typeOf<Array>(), {ELE_TYPE_ARRAY, &serArray}},
+   {Json::typeOf<std::string>(), {ELE_TYPE_UTF_STRING, &serString}},
+   {Json::typeOf<int64_t>(), {ELE_TYPE_INT64, [](Serializer& s, const Json& ele)->void { s.write((void*)&ele.as<int64_t>(), sizeof(int64_t));}}},
+   {Json::typeOf<double>(), {ELE_TYPE_DOUBLE, [](Serializer& s, const Json& ele)->void { s.write((void*)&ele.as<double>(), sizeof(double));}}},
+   {Json::typeOf<bool>(), {ELE_TYPE_BOOL, [](Serializer& s, const Json& ele)->void { s << (char)(ele.as<bool>() ? 1 : 0); }}},
+   {Json::typeOf<Null>(), {ELE_TYPE_NULL, [](Serializer& s, const Json& ele)->void { /* Do nothing, only the type matter */}}},
+   // Supplemental type.
+   {Json::typeOf<UUID>(), {ELE_TYPE_BIN, &serUUID }},
+   {Json::typeOf<Binary>(), {ELE_TYPE_BIN, &serBinary }}
+};
+
+Serializer& Serializer::operator <<(const Json& val){
+   auto ite = writeMap.find(val.getType());
+   if (ite == writeMap.end())
+      throw Exception("No serializer for json element" + to_string(val));
+   ite->second.second(*this, val);
+}
+
+void write(const Json& data, std::ostream& out){
+   Serializer ser(out);
+   ser << data;
+}
 
 // class BIStream {
 // public :
@@ -502,4 +429,4 @@
 
 
 
-// } } // namespace elladan::json
+} } } // namespace elladan::json

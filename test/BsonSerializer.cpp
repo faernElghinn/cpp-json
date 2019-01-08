@@ -1,0 +1,158 @@
+/*
+ *  Created on: Jun 13, 2017
+ * BsonSerializertest.cpp
+ *
+ *      Author: daniel
+ */
+
+#include <elladan/FlagSet.h>
+#include <elladan/Stringify.h>
+#include <exception>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <fstream>
+
+#include "../src/serializer/BsonWriter.h"
+#include "Test.h"
+
+using std::to_string;
+
+using namespace elladan::json::bsonSerializer;
+
+// bson must always start as a object or array.
+static const std::vector<char> BsonNull = {
+      0x8, 0x0, 0x0, 0x0, // Size of data.
+      0x0a, '1', 0x00, // NULL type, name + end
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonFalse = {
+      0x09, 0x0, 0x0, 0x0, // Size of data.
+      0x08, '1', 0x00, 0x00,// false
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonTrue = {
+      0x09, 0x0, 0x0, 0x0, // Size of data.
+      0x08, '1', 0x00, 0x01,// true
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonIntM1 = {
+      0x10, 0x0, 0x0, 0x0, // Size of data.
+		0x12, '1', 0x00, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, //-1
+      0x00 // End of document
+
+};
+
+static const std::vector<char> BsonInt = {
+      0x10, 0x0, 0x0, 0x0, // Size of data.
+		0x12, '1', 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // 0x0807060504030201
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonDouble = {
+      0x10, 0x0, 0x0, 0x0, // Size of data.
+      0x01, '1', 0x00,
+   	0x00,0x00, 0x00,0x00, 0x00,0x00, (char)0xF0,0x3f,
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonString = {
+      0x11, 0x0, 0x0, 0x0, // Size of data.
+      0x02, '1', 0x00,
+         0x05, 0x00, 0x00, 0x00,
+         'T', 'E', 'S', 'T', 0x00,
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonArr = {
+      0x19, 0x0, 0x0, 0x0, // Size of data.
+         0x04, '1', 0x00, // Start of array
+            0x11, 0x0, 0x0, 0x0, // size of array
+            0x08, '0', 0x00, 0x00,// false
+            0x08, '1', 0x00, 0x01,// true
+            0x08, '2', 0x00, 0x00,// false
+         0x00, // End of Array
+      0x00 // End of document
+};
+
+static const std::vector<char>  BsonObject = {
+      0x25, 0x0, 0x0, 0x0, // Size of data.
+         0x03, '1', 0x00, // Start of obj
+            0x1d, 0x0, 0x0, 0x0, // size of obj
+            0x08, 'T', 'e', 's', 't', '1', 0x00, 0x00,// false
+            0x08, 'T', 'e', 's', 't', '2', 0x00, 0x01,// true
+            0x08, 'T', 'e', 's', 't', '3', 0x00, 0x00,// false
+         0x00, // End of obj
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonBinary = {
+      0x11, 0x0, 0x0, 0x0, // Size of data.
+      0x05, '1', 0x00,
+         0x04, 0x00, 0x00, 0x00, // Size of bin.
+         0x00,
+         0x04, 0x03, 0x02, 0x01, // value of data.
+      0x00 // End of document
+};
+
+static const std::vector<char> BsonUUID = {
+      0x1d, 0x0, 0x0, 0x0, // Size of data.
+      0x05, '1', 0x00,
+         0x10, 0x00, 0x00, 0x00, // Size of bin.
+         0x04,
+         0x5d, 0x79, (char)0xe1, (char)0x9a, 0x31, 0x7c, 0x4d, 0x42, (char)0x82, (char)0x99, 0x08, (char)0xb5, 0x43, 0x2d, (char)0xb8, 0x03,
+      0x00 // End of document
+};
+
+std::string printAsHex(const char* str, size_t size){
+   std::string retVal;
+   retVal.reserve(size*6);
+   for (int i = 0; i < size; i++){
+      char hex[8];
+      sprintf(hex, "0x%02x, ", (uint8_t)str[i]);
+      retVal += hex;
+   }
+   return retVal;
+}
+
+std::string printAsHex(const std::string& str){
+   return printAsHex((const char*)str.c_str(), str.size());
+}
+
+std::string serializeTest(Json src, const std::vector<char>& expected, const std::string& name){
+   std::stringstream bson;
+   write(src, bson);
+   if (bson.str().size() != expected.size())
+      return "\nInvalid bson size for " + name +", expected " + std::to_string(expected.size()) +", got " + std::to_string(bson.str().size())
+      + ", expected : \n" + printAsHex(expected.data(), expected.size()) +"\ngot :\n" + printAsHex(bson.str());
+   else if (memcmp(bson.str().c_str(), expected.data(), expected.size()) != 0)
+      return "\nInvalid bson for " + name +", expected : \n" + printAsHex(expected.data(), expected.size()) +"\ngot :\n" + printAsHex(bson.str());
+   return "";
+}
+
+std::string testBsonToTxt(){
+   std::string retVal;
+
+   retVal += serializeTest(Object {{"1", Null()}}, BsonNull, "Null" );
+   retVal += serializeTest(Object {{"1", false}}, BsonFalse, "false" );
+   retVal += serializeTest(Object {{"1", true}}, BsonTrue, "true" );
+   retVal += serializeTest(Object {{"1", -1}}, BsonIntM1, "-1" );
+   retVal += serializeTest(Object {{"1", 0x0807060504030201}}, BsonInt, "0x0807060504030201" );
+   retVal += serializeTest(Object {{"1", "TEST"}}, BsonString, "TEST" );
+   retVal += serializeTest(Object {{"1", Array {false,true,false}}}, BsonArr, "Array" );
+   retVal += serializeTest(Object {{"1", Object { {"Test1",false},{"Test2",true},{"Test3",false} }}}, BsonObject, "Object" );
+   retVal += serializeTest(Object {{"1", Binary("04030201") }}, BsonBinary, "Binary" );
+   retVal += serializeTest(Object {{"1", UUID::fromString("5d79e19a-317c-4d42-8299-08b5432db803") }}, BsonUUID, "UUID" );
+
+   return retVal;
+}
+
+int main(int argc, char **argv) {
+	bool valid = true;
+	EXE_TEST(testBsonToTxt());
+	return valid ? 0 : -1;
+}
