@@ -28,100 +28,99 @@ bool Json::operator > (const Json& rhs) const { assert(_data.get()); assert(rhs.
 
 
 std::vector<Json*> Json::get(const std::string& uri) {
-    // Use const function, then cast away result constness.
-    std::vector<Json*> retVal;
-    for(auto ite : const_cast<const Json*>(this)->get(uri))
-        retVal.push_back(const_cast<Json*>(ite));
-    return retVal;
+   // Use const function, then cast away result constness.
+   std::vector<Json*> retVal;
+   for(auto ite : const_cast<const Json*>(this)->get(uri))
+      retVal.push_back(const_cast<Json*>(ite));
+   return retVal;
 }
 std::vector<const Json*> Json::get(const std::string& uri) const {
-    std::vector<const Json*> retVal;
-    auto path = tokenize(uri, "/");
+   std::vector<const Json*> retVal;
+   auto path = tokenize(uri, "/");
 
-    std::vector<std::pair<int, const Json&>> toScan = {{0, *this}};
+   std::vector<std::pair<int, const Json&>> toScan = {{0, *this}};
 
-    while ( !toScan.empty() ) {
-        auto ite = toScan.back();
-        toScan.pop_back();
+   while ( !toScan.empty() ) {
+      auto ite = toScan.back();
+      toScan.pop_back();
 
-        // End of the road
-        if (ite.first == path.size()) {
+      // End of the road
+      if (ite.first == path.size()) {
+         retVal.push_back(&ite.second);
+         continue;
+      }
+
+      if (path[ite.first] == "**") {
+         if (ite.first + 1 == path.size()) {
             retVal.push_back(&ite.second);
             continue;
-        }
+         }
 
-        if (path[ite.first] == "**") {
-            if (ite.first + 1 == path.size()) {
-                retVal.push_back(&ite.second);
-                continue;
+         if (auto o = ite.second.cast<Object>()) {
+            auto child = o->find(path[ite.first + 1]);
+            if (child != o->end()) {
+               toScan.push_back({ite.first + 2, child->second});
             }
-
-            if (auto o = ite.second.cast<Object>()) {
-                auto child = o->find(path[ite.first + 1]);
-                if (child != o->end()) {
-                    toScan.push_back({ite.first + 2, child->second});
-                }
-                for (auto& i : *o)
-                    toScan.push_back({ite.first, i.second});
-                continue;
-            }
-            
-            if (auto a = ite.second.cast<Array>()) {
-                for (auto& i : *a)
-                    toScan.push_back({ite.first, i});
-                continue;
-            }
-
+            for (auto& i : *o)
+               toScan.push_back({ite.first, i.second});
             continue;
-        }
+         }
 
-        if (path[ite.first] == "*") {
-            if (auto o = ite.second.cast<Object>()) {
-                for (auto& i : *o)
-                    toScan.push_back({ite.first + 1, i.second});
-                continue;
-            }
-            
-            if (auto a = ite.second.cast<Array>()) {
-                for (auto& i : *a)
-                    toScan.push_back({ite.first + 1, i});
-                continue;
-            }
-
-            continue;
-        }
-
-        if (auto o = ite.second.cast<Object>()) {
-            auto child = o->find(path[ite.first]);
-            if (child != o->end()) 
-                toScan.push_back({ite.first + 1, child->second});
-            continue;
-        }
-
-        if (auto a = ite.second.cast<Array>()) {
+         if (auto a = ite.second.cast<Array>()) {
             for (auto& i : *a)
-                toScan.push_back({ite.first + 1, i});
+               toScan.push_back({ite.first, i});
             continue;
-        }
-    }
-    return retVal;
+         }
+
+         continue;
+      }
+
+      if (path[ite.first] == "*") {
+         if (auto o = ite.second.cast<Object>()) {
+            for (auto& i : *o)
+               toScan.push_back({ite.first + 1, i.second});
+            continue;
+         }
+
+         if (auto a = ite.second.cast<Array>()) {
+            for (auto& i : *a)
+               toScan.push_back({ite.first + 1, i});
+            continue;
+         }
+         continue;
+      }
+
+      if (auto o = ite.second.cast<Object>()) {
+         auto child = o->find(path[ite.first]);
+         if (child != o->end())
+            toScan.push_back({ite.first + 1, child->second});
+         continue;
+      }
+
+      if (auto a = ite.second.cast<Array>()) {
+         for (auto& i : *a)
+            toScan.push_back({ite.first + 1, i});
+         continue;
+      }
+   }
+   return retVal;
 }
 
 template<> Json::JsonIf* Json::JsonImp<Binary>::copy() const { 
-    return new JsonImp<Binary>(ele.copy()); 
+   return new JsonImp<Binary>(ele.copy());
 }
 
 #define OVERWRITE_TYPE(InitType, NewType) \
-template<> \
-Json::Json(InitType ele, int i)\
-: _data(new JsonImp<NewType>(ele))\
-{}\
-template<> \
-Json& Json::operator=(InitType ele)\
-{\
-   _data.reset(new JsonImp<NewType>(ele));\
-   return *this;\
-}
+      template<> \
+      Json::Json(InitType ele, int i)\
+      : _data(new JsonImp<NewType>(ele))\
+        {}\
+        template<> \
+        Json& Json::operator=(InitType ele)\
+        {\
+           _data.reset(new JsonImp<NewType>(ele));\
+           return *this;\
+        }
 
 OVERWRITE_TYPE(const char*, std::string);
 OVERWRITE_TYPE(int16_t, int64_t);
@@ -146,9 +145,9 @@ bool Null::operator > (const Null& rhs) const { return false; }
 #include "serializer/JsonWriter.h"
 #include <sstream>
 namespace std{
-    std::string to_string(const elladan::json::Json& ele){
-        std::stringstream ret;
-        elladan::json::jsonSerializer::write(ele, ret);
-        return ret.str();
-    }
+std::string to_string(const elladan::json::Json& ele){
+   std::stringstream ret;
+   elladan::json::jsonSerializer::write(ele, ret);
+   return ret.str();
+}
 }

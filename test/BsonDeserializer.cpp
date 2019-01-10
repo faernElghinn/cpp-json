@@ -14,7 +14,7 @@
 #include <vector>
 #include <fstream>
 
-#include "../src/serializer/BsonWriter.h"
+#include "../src/serializer/BsonReader.h"
 #include "Test.h"
 
 using std::to_string;
@@ -108,51 +108,48 @@ static const std::vector<char> BsonUUID = {
       0x00 // End of document
 };
 
-std::string printAsHex(const char* str, size_t size){
-   std::string retVal;
-   retVal.reserve(size*6);
-   for (int i = 0; i < size; i++){
-      char hex[8];
-      sprintf(hex, "0x%02x, ", (uint8_t)str[i]);
-      retVal += hex;
+std::string expectThrow(const std::vector<char>& source, const std::string& name, DecodingOption opt = DecodingOption()){
+   std::stringstream ss;
+   ss.write(source.data(), source.size());
+   
+   try
+   {
+      Json bson = read(ss, opt);
+      return name + " should have thrown";
    }
-   return retVal;
-}
-
-std::string printAsHex(const std::string& str){
-   return printAsHex((const char*)str.c_str(), str.size());
-}
-
-std::string serializeTest(Json src, const std::vector<char>& expected, const std::string& name){
-   std::stringstream bson;
-   write(src, bson);
-   if (bson.str().size() != expected.size())
-      return "\nInvalid bson size for " + name +", expected " + std::to_string(expected.size()) +", got " + std::to_string(bson.str().size())
-      + ", expected : \n" + printAsHex(expected.data(), expected.size()) +"\ngot :\n" + printAsHex(bson.str());
-   else if (memcmp(bson.str().c_str(), expected.data(), expected.size()) != 0)
-      return "\nInvalid bson for " + name +", expected : \n" + printAsHex(expected.data(), expected.size()) +"\ngot :\n" + printAsHex(bson.str());
+   catch(const std::exception& e) { }
    return "";
 }
 
-std::string testBsonToTxt(){
+std::string deserializeTest(Json expected, const std::vector<char>& source, const std::string& name, DecodingOption opt = DecodingOption()){
+   std::stringstream ss;
+   ss.write(source.data(), source.size());
+   Json bson = read(ss, opt);
+   if (bson != expected)
+      return "\nInvalid object for type" + name +", expected : \n" + to_string(expected) +"\ngot :\n" + to_string(bson);
+   return "";
+}
+
+std::string testBsonToJson(){
    std::string retVal;
 
-   retVal += serializeTest(Object {{"1", Null()}}, BsonNull, "Null" );
-   retVal += serializeTest(Object {{"1", false}}, BsonFalse, "false" );
-   retVal += serializeTest(Object {{"1", true}}, BsonTrue, "true" );
-   retVal += serializeTest(Object {{"1", -1}}, BsonIntM1, "-1" );
-   retVal += serializeTest(Object {{"1", 0x0807060504030201}}, BsonInt, "0x0807060504030201" );
-   retVal += serializeTest(Object {{"1", "TEST"}}, BsonString, "TEST" );
-   retVal += serializeTest(Object {{"1", Array {false,true,false}}}, BsonArr, "Array" );
-   retVal += serializeTest(Object {{"1", Object { {"Test1",false},{"Test2",true},{"Test3",false} }}}, BsonObject, "Object" );
-   retVal += serializeTest(Object {{"1", Binary("04030201") }}, BsonBinary, "Binary" );
-   retVal += serializeTest(Object {{"1", UUID::fromString("5d79e19a-317c-4d42-8299-08b5432db803") }}, BsonUUID, "UUID" );
+   retVal += expectThrow(BsonNull, "Null");
+   retVal += deserializeTest(Object {{"1", Null()}}, BsonNull, "Null", ALLOW_NULL );
+   retVal += deserializeTest(Object {{"1", false}}, BsonFalse, "false" );
+   retVal += deserializeTest(Object {{"1", true}}, BsonTrue, "true" );
+   retVal += deserializeTest(Object {{"1", -1}}, BsonIntM1, "-1" );
+   retVal += deserializeTest(Object {{"1", 0x0807060504030201}}, BsonInt, "0x0807060504030201" );
+   retVal += deserializeTest(Object {{"1", "TEST"}}, BsonString, "TEST" );
+   retVal += deserializeTest(Object {{"1", Array {false,true,false}}}, BsonArr, "Array" );
+   retVal += deserializeTest(Object {{"1", Object { {"Test1",false},{"Test2",true},{"Test3",false} }}}, BsonObject, "Object" );
+   retVal += deserializeTest(Object {{"1", Binary("04030201") }}, BsonBinary, "Binary" );
+   retVal += deserializeTest(Object {{"1", UUID::fromString("5d79e19a-317c-4d42-8299-08b5432db803") }}, BsonUUID, "UUID" );
 
    return retVal;
 }
 
 int main(int argc, char **argv) {
 	bool valid = true;
-	EXE_TEST(testBsonToTxt());
+	EXE_TEST(testBsonToJson());
 	return valid ? 0 : -1;
 }
