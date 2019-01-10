@@ -45,3 +45,6 @@ add_executable(bsonSerTest test/BsonSerializer.cpp)
 target_link_libraries(bsonSerTest ElladanHelper ElladanJson)
 add_test(bsonSerTest bsonSerTest)
 
+add_executable(bsonDeserTest test/BsonDeserializer.cpp)
+target_link_libraries(bsonDeserTest ElladanHelper ElladanJson)
+add_test(bsonDeserTest bsonDeserTest)

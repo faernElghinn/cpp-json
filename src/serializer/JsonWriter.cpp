@@ -1,5 +1,5 @@
 /*
- * BJsonSerializer.cpp
+ * JsonWriter.cpp
  *
  *  Created on: Apr 17, 2017
  *      Author: daniel

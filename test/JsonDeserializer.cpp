@@ -134,7 +134,7 @@ std::string testTxtToJson(){
 	t2.emplace("null", Null());
    retVal += test_mode_value<Object>(ExpectWS, t2, DecodingFlags::ALLOW_NULL);
 
-	retVal += test_mode_value<UUID>("u\"5d79e19a-317c-4d42-8299-08b5432db803\"", elladan::UUID::fromString("5d79e19a-317c-4d42-8299-08b5432db803"));
+	retVal += test_mode_value<UUID>("u\"5d79e19a-317c-4d42-8299-08b5432db803\"", elladan::UUID("5d79e19a-317c-4d42-8299-08b5432db803"));
 	retVal += test_mode_value<Binary>("b\"01234567\"", elladan::Binary("01234567"));
 
    return retVal;
