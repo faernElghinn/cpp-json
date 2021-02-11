@@ -90,94 +90,6 @@ std::string doAssignTest() {
     return retVal;
 }
 
-std::string doGetTest() {
-   std::string retVal;
-
-   Object c11;
-   c11.insert("0", 0);
-   c11.insert("1", 1);
-   c11.insert("2", 2);
-   
-   Object c12;
-   c12.insert("0", 1);
-   c12.insert("1", 2);
-   c12.insert("2", 3);
-
-   Object c1;
-   c1.insert("a", std::move(c11));
-   c1.insert("c", std::move(c12));
-
-
-   Object c21;
-   c21.insert("2", 4);
-   c21.insert("3", 5);
-   c21.insert("4", 6);
-
-   Object c22;
-   c22.insert("5", 7);
-   c22.insert("6", 8);
-   c22.insert("7", 9);
-
-   Array c2 = {std::move(c21), std::move(c22)};
-   
-   Object r;
-   r.insert("a", std::move(c1));
-   r.insert("b", std::move(c2));
-
-   Json root = std::move(r);
-
-   std::vector<Json*> res;
-   
-   res = root.get("a/a/0");
-   if (res.size() != 1) {
-      retVal += "\n Expected 1 result from query";
-   } else if (res.front()->as<int64_t>() != 0) {
-      retVal += "\n Wrong node extracted, expected to be 0";
-   }
-
-   res = root.get("a/a/*");
-   if (res.size() != 3) {
-      retVal += "\n Expected 3 result from query";
-   } else if (res[0]->as<int64_t>() != 2) {
-      retVal += "\n Wrong node extracted, expected to be 2, got ";
-      retVal += to_string(res.front()->as<int64_t>());
-   } else if (res[1]->as<int64_t>() != 1) {
-      retVal += "\n Wrong node extracted, expected to be 1, got ";
-      retVal += to_string(res[1]->as<int64_t>());
-   } else if (res[2]->as<int64_t>() != 0) {
-      retVal += "\n Wrong node extracted, expected to be 0, got ";
-      retVal += to_string(res[2]->as<int64_t>());
-   }
-
-   res = root.get("a/*/1");
-   if (res.size() != 2) {
-      retVal += "\n Expected 2 result from query";
-   } else if (res[0]->as<int64_t>() != 2) {
-      retVal += "\n Wrong node extracted, expected to be 2, got ";
-      retVal += to_string(res.front()->as<int64_t>());
-   } else if (res[1]->as<int64_t>() != 1) {
-      retVal += "\n Wrong node extracted, expected to be 1, got ";
-      retVal += to_string(res[1]->as<int64_t>());
-   }
-
-   res = root.get("**/2");
-   if (res.size() != 3) {
-      retVal += "\n Expected 3 result from query, got ";
-      retVal += to_string(res.size());
-   } else if (res[0]->as<int64_t>() != 4) {
-      retVal += "\n Wrong node extracted, expected to be 4, got ";
-      retVal += to_string(res.front()->as<int64_t>());
-   } else if (res[1]->as<int64_t>() != 3) {
-      retVal += "\n Wrong node extracted, expected to be 3, got ";
-      retVal += to_string(res[1]->as<int64_t>());
-   } else if (res[2]->as<int64_t>() != 2) {
-      retVal += "\n Wrong node extracted, expected to be 2, got ";
-      retVal += to_string(res[2]->as<int64_t>());
-   }
-
-   return retVal;
-}
-
 std::string doMemTest() {
    std::string retVal;
 
@@ -261,7 +173,6 @@ int main(int argc, char **argv) {
 	bool valid = true;
 	EXE_TEST(doConstructionTest());
 	EXE_TEST(doAssignTest());
-	EXE_TEST(doGetTest());
 	EXE_TEST(doMemTest());
 	EXE_TEST(doCmpTest());
 	return valid ? 0 : -1;

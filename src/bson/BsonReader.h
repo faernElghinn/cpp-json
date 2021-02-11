@@ -22,7 +22,7 @@
 
 namespace elladan { 
 namespace json { 
-namespace bsonSerializer {
+namespace bson {
 
 enum DecodingFlags {
    ALLOW_NULL          = 1 << 0, /// If set, null value will NOT throw an error.
@@ -64,10 +64,9 @@ public:
    Json extractNext(char type);
    std::vector<Json> extractNext(char type, std::vector<std::string>& path, int deepness);
    void skipNext(char type);
-
 };
 
 json::Json read(std::istream& in, DecodingOption flag = DecodingOption());
-std::vector<json::Json> extract(std::istream& in, DecodingOption flag, const std::string& path);
+std::vector<json::Json> extract(std::istream& in, const std::string& path, DecodingOption flag = DecodingOption());
 
 }}} // namespaces

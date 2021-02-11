@@ -15,7 +15,7 @@
 #include <elladan/FlagSet.h>
 #include <elladan/VMap.h>
 
-#include "../json.h"
+#include "json.h"
 
 namespace elladan { 
 namespace json { 
@@ -33,14 +33,14 @@ struct EncodingOption : public FlagSet
    EncodingOption(EncodingFlags flag) : EncodingOption() { set((int)flag); }
 
    static constexpr int MAX_INDENT_AS_TAB = 15;
-   void setIndent(int size) {
-      _ident = std::max(0, std::min(size, MAX_INDENT_AS_TAB));
+   inline void setIndent(int size) {
+      _ident = std::clamp(size, 0, MAX_INDENT_AS_TAB);
    }
    inline int getIndent() const { return _ident; }
 
    static constexpr int MAX_FLOAT = 31;
-   void setRealPrec(int size) {
-      _realPrec = std::max(1,std::min(size, MAX_FLOAT));
+   inline void setRealPrec(int size) {
+      _realPrec = std::clamp(size, 1, MAX_FLOAT);
    }
    inline int getRealPrec() const { return _realPrec; }
    uint8_t _realPrec = 10;

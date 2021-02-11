@@ -11,6 +11,7 @@
 #include <elladan/Stringify.h>
 #include <elladan/UUID.h>
 #include <elladan/Binary.h>
+#include <elladan/utf.h>
 #include <stddef.h>
 #include <algorithm>
 #include <cctype>
@@ -21,8 +22,8 @@
 #include <utility>
 #include <vector>
 #include <locale>
+#include <locale>
 
-#include "../utf.h"
 
 using std::to_string;
 using elladan::json::Json;
@@ -467,14 +468,15 @@ json::Json read(std::istream& in_stream, DecodingOption flag) {
    return res.value_or(Json());
 }
 
-std::vector<json::Json> extract(std::istream& in_stream, DecodingOption flag, const std::string& path) {
-   json::Json obj = read(in_stream, flag);
-   std::vector<json::Json> retVal;
-
-   for (auto ite : obj.get(path))
-      retVal.push_back(*ite);
-
-   return retVal;
-}
+// FIXME: extract!
+//std::vector<json::Json> extract(std::istream& in_stream, const std::string& path, DecodingOption flag) {
+//   json::Json obj = read(in_stream, flag);
+//   std::vector<json::Json> retVal;
+//
+//   for (auto ite : obj.get(path))
+//      retVal.push_back(*ite);
+//
+//   return retVal;
+//}
 
 } } } // namespace elladan::json::jsonSerializer

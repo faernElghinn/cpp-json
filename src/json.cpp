@@ -1,4 +1,4 @@
-/*
+/*Map
  * Copyright (c) 2009-2016 Petri Lehtinen <petri@digip.org>
  *
  * Jansson is free software; you can redistribute it and/or modify
@@ -7,7 +7,7 @@
 
 #include "json.h"
 
-#include <cassert>
+#include <elladan/Stringify.h>
 
 namespace elladan {
 namespace json {
@@ -17,6 +17,24 @@ Json::Json() : _data(new JsonImp<Null>()) {}
 Json::Json(const Json& oth) : _data(oth._data->copy()) { }
 Json::Json(Json&& oth) : _data(std::move(oth._data)) {}
 Json& Json::operator=(const Json& oth) { _data.reset(oth._data->copy()); return *this; }
+
+
+Json::Json(std::initializer_list<Json> list)
+: Json(Array())
+{
+   Array& arr = as<Array>();
+   for(auto&& ite : list)
+       arr.emplace_back(ite);
+}
+
+Json::Json(std::initializer_list<std::pair<std::string,Json>> list)
+: Json(Object())
+{
+   Object& obj = as<Object>();
+   for (auto&& ite : list)
+      obj.insert(ite.first, ite.second);
+}
+
 JsonType Json::getType() const { return _data->getType(); }
 const std::type_info& Json::getTypeInfo() const { return _data->getTypeInfo(); }
 bool Json::operator < (const Json& rhs) const { assert(_data.get()); assert(rhs._data.get()); return *_data.get() <  rhs._data.get(); }
@@ -26,87 +44,7 @@ bool Json::operator !=(const Json& rhs) const { assert(_data.get()); assert(rhs.
 bool Json::operator >=(const Json& rhs) const { assert(_data.get()); assert(rhs._data.get()); return *_data.get() >= rhs._data.get(); }
 bool Json::operator > (const Json& rhs) const { assert(_data.get()); assert(rhs._data.get()); return *_data.get() >  rhs._data.get(); }
 
-
-std::vector<Json*> Json::get(const std::string& uri) {
-   // Use const function, then cast away result constness.
-   std::vector<Json*> retVal;
-   for(auto ite : const_cast<const Json*>(this)->get(uri))
-      retVal.push_back(const_cast<Json*>(ite));
-   return retVal;
-}
-std::vector<const Json*> Json::get(const std::string& uri) const {
-   std::vector<const Json*> retVal;
-   auto path = tokenize(uri, "/");
-
-   std::vector<std::pair<int, const Json&>> toScan = {{0, *this}};
-
-   while ( !toScan.empty() ) {
-      auto ite = toScan.back();
-      toScan.pop_back();
-
-      // End of the road
-      if (ite.first == path.size()) {
-         retVal.push_back(&ite.second);
-         continue;
-      }
-
-      if (path[ite.first] == "**") {
-         if (ite.first + 1 == path.size()) {
-            retVal.push_back(&ite.second);
-            continue;
-         }
-
-         if (auto o = ite.second.cast<Object>()) {
-            auto child = o->find(path[ite.first + 1]);
-            if (child != o->end()) {
-               toScan.push_back({ite.first + 2, child->second});
-            }
-            for (auto& i : *o)
-               toScan.push_back({ite.first, i.second});
-            continue;
-         }
-
-         if (auto a = ite.second.cast<Array>()) {
-            for (auto& i : *a)
-               toScan.push_back({ite.first, i});
-            continue;
-         }
-
-         continue;
-      }
-
-      if (path[ite.first] == "*") {
-         if (auto o = ite.second.cast<Object>()) {
-            for (auto& i : *o)
-               toScan.push_back({ite.first + 1, i.second});
-            continue;
-         }
-
-         if (auto a = ite.second.cast<Array>()) {
-            for (auto& i : *a)
-               toScan.push_back({ite.first + 1, i});
-            continue;
-         }
-         continue;
-      }
-
-      if (auto o = ite.second.cast<Object>()) {
-         auto child = o->find(path[ite.first]);
-         if (child != o->end())
-            toScan.push_back({ite.first + 1, child->second});
-         continue;
-      }
-
-      if (auto a = ite.second.cast<Array>()) {
-         for (auto& i : *a)
-            toScan.push_back({ite.first + 1, i});
-         continue;
-      }
-   }
-   return retVal;
-}
-
-template<> Json::JsonIf* Json::JsonImp<Binary>::copy() const { 
+template<> Json::JsonIf* Json::JsonImp<Binary>::copy() const {
    return new JsonImp<Binary>(ele.copy());
 }
 
@@ -140,14 +78,58 @@ bool Null::operator !=(const Null& rhs) const { return false; }
 bool Null::operator >=(const Null& rhs) const { return false; }
 bool Null::operator > (const Null& rhs) const { return false; }
 
+
+typedef elladan::VMap<std::string, Json> OMap;
+
+Object::Object(std::initializer_list<pair> l) : OMap(l) {}
+
+Object::iterator Object::find(const std::string& key) { return OMap::find(key); }
+Object::const_iterator Object::find(const std::string& key) const {  return OMap::find(key); }
+
+bool Object::insert(const std::string& key, const Json& ele) { return OMap::insert(key, ele); }
+bool Object::emplace(const std::string& key, Json&& ele) { return OMap::emplace(key, std::move(ele)); }
+void Object::set(const std::string& key, const Json& ele) { OMap::set(key, ele); }
+void Object::setInplace(const std::string& key, Json&& ele) { OMap::setInplace(key, std::move(ele)); }
+bool Object::erase(iterator& ite) { return OMap::erase(ite); }
+bool Object::erase(const std::string& key) { return OMap::erase(key); }
+Json& Object::operator[] (const std::string& key) { return OMap::operator [](key); }
+const Json& Object::at(const std::string& key) const { return OMap::at(key); }
+Json& Object::at(const std::string& key) { return OMap::at(key); }
+Json&& Object::take(const std::string& key) { return std::move(OMap::take(key)); }
+void Object::clear() { return OMap::clear(); }
+int Object::count (std::string key) const { return OMap::count(key); }
+int Object::size () const { return OMap::size(); }
+void Object::reserve (size_t size) { OMap::reserve(size); }
+Object::iterator Object::begin() { return OMap::begin(); }
+Object::iterator Object::end() { return OMap::end(); }
+Object::const_iterator Object::begin() const { return OMap::begin(); }
+Object::const_iterator Object::end() const { return OMap::end(); }
+Object::reverse_iterator Object::rbegin() { return OMap::rbegin(); }
+Object::reverse_iterator Object::rend() { return OMap::rend(); }
+Object::const_reverse_iterator Object::rbegin() const { return OMap::rbegin(); }
+Object::const_reverse_iterator Object::rend() const { return OMap::rend(); }
+
+void Object::sort() { return OMap::sort(); }
+void Object::sort(std::function<bool(const pair& lhs, const pair& rhs)> sortFnc) { return OMap::sort(sortFnc); }
+
+bool Object::operator< (const Object& rhs) const { return OMap::operator< (rhs); }
+bool Object::operator<=(const Object& rhs) const { return OMap::operator<=(rhs); }
+bool Object::operator>=(const Object& rhs) const { return OMap::operator>=(rhs); }
+bool Object::operator> (const Object& rhs) const { return OMap::operator> (rhs); }
+bool Object::operator == (const Object& rhs) const { return OMap::operator== (rhs); }
+bool Object::operator != (const Object& rhs) const { return OMap::operator!= (rhs); }
+
 }} // namespace elladan::json
 
-#include "serializer/JsonWriter.h"
-#include <sstream>
-namespace std{
+namespace std {
+
 std::string to_string(const elladan::json::Json& ele){
-   std::stringstream ret;
-   elladan::json::jsonSerializer::write(ele, ret);
-   return ret.str();
+   return ele.toString();
 }
+
+std::string to_string(const elladan::json::Null&){
+   return "Null";
 }
+
+}
+

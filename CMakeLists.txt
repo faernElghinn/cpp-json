@@ -10,41 +10,55 @@ project ("ElladanJson") # http://www.cmake.org/cmake/help/cmake-2-8-docs.html#co
 
 
 file(GLOB_RECURSE source "src/*.cpp")
-file(GLOB_RECURSE header "src/*.h")
 
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wshadow ")
-SET_SOURCE_FILES_PROPERTIES( ${source} ${header} PROPERTIES LANGUAGE CXX )
-add_library(ElladanJson STATIC ${source} )
+SET_SOURCE_FILES_PROPERTIES( ${source}  PROPERTIES LANGUAGE CXX )
+add_library(ElladanJson SHARED ${source} )
+add_library(ElladanJsonSta STATIC ${source} )
+set_target_properties(ElladanJsonSta PROPERTIES OUTPUT_NAME ElladanJson)
+
 
 find_library(ElladanHelper ElladanHelper)
 target_link_libraries(ElladanJson ElladanHelper)
+target_link_libraries(ElladanJsonSta ElladanHelper)
 
 # Export header
 install(DIRECTORY src/ DESTINATION include/elladan/json
         FILES_MATCHING PATTERN "*.h")
-install(TARGETS ElladanJson ARCHIVE DESTINATION lib)
-
-message("cmake version " ${CMAKE_C_COMPILER_VERSION})
-
+install(TARGETS ElladanJson LIBRARY DESTINATION lib)
+install(TARGETS ElladanJsonSta ARCHIVE DESTINATION lib)
 
 enable_testing()
 
+# Main Json structure
 add_executable(jsonTest test/JsonTest.cpp)
-target_link_libraries(jsonTest ElladanHelper ElladanJson)
+target_link_libraries(jsonTest ElladanHelper ElladanJsonSta)
 add_test(jsonTest jsonTest)
 
-add_executable(jsonSerTest test/JsonSerializer.cpp)
-target_link_libraries(jsonSerTest ElladanHelper ElladanJson)
-add_test(jsonSerTest jsonSerTest)
+# json -> string serialization
+add_executable(jsonSer test/JsonSerializer.cpp)
+target_link_libraries(jsonSer ElladanHelper ElladanJsonSta)
+add_test(jsonSer jsonSer)
 
-add_executable(jsonDeserTest test/JsonDeserializer.cpp)
-target_link_libraries(jsonDeserTest ElladanHelper ElladanJson)
-add_test(jsonDeserTest jsonDeserTest)
+add_executable(jsonDeser test/JsonDeserializer.cpp)
+target_link_libraries(jsonDeser ElladanHelper ElladanJsonSta)
+add_test(jsonDeser jsonDeser)
 
-add_executable(bsonSerTest test/BsonSerializer.cpp)
-target_link_libraries(bsonSerTest ElladanHelper ElladanJson)
-add_test(bsonSerTest bsonSerTest)
+# Json -> Bson serialization
+add_executable(bsonSer test/BsonSerializer.cpp)
+target_link_libraries(bsonSer ElladanHelper ElladanJsonSta)
+add_test(jbonSer bsonSer)
 
-add_executable(bsonDeserTest test/BsonDeserializer.cpp)
-target_link_libraries(bsonDeserTest ElladanHelper ElladanJson)
-add_test(bsonDeserTest bsonDeserTest)
+add_executable(bsonDeser test/BsonDeserializer.cpp)
+target_link_libraries(bsonDeser ElladanHelper ElladanJsonSta)
+add_test(bsonDeser bsonDeser)
+
+# Pointer & reference
+add_executable(pointerTest test/PointerTest.cpp)
+target_link_libraries(pointerTest ElladanHelper ElladanJsonSta)
+add_test(pointerTest pointerTest)
+
+# Schema
+add_executable(schemaTest test/SchemaTest.cpp)
+target_link_libraries(schemaTest ElladanHelper ElladanJsonSta)
+add_test(schemaTest schemaTest)

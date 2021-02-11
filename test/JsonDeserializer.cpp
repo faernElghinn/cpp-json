@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "../src/json.h"
-#include "../src/serializer/JsonReader.h"
+#include "../src/JsonReader.h"
 #include "Test.h"
 
 using std::to_string;

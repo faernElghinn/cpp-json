@@ -14,12 +14,12 @@
 #include <vector>
 #include <fstream>
 
-#include "../src/serializer/BsonReader.h"
+#include "../src/bson/BsonReader.h"
 #include "Test.h"
 
 using std::to_string;
 
-using namespace elladan::json::bsonSerializer;
+using namespace elladan::json::bson;
 
 // bson must always start as a object or array.
 static const std::vector<char> BsonNull = {

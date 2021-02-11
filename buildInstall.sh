@@ -9,10 +9,11 @@ fi
 
 mkdir -p Build > /dev/null
 cd Build
-export CXX=/usr/bin/g++-8
-export CC=/usr/bin/gcc-8
+export CXX=/usr/bin/g++-9
+export CC=/usr/bin/gcc-9
 cmake .. -DCMAKE_BUILD_TYPE=DEBUG &&
 make -j "$j" && 
-make test && 
-sudo make install 
+ctest --output-on-failure && 
+sudo make install &&
+sudo ldconfig
 cd ..
