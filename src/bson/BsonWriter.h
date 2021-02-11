@@ -12,12 +12,11 @@
 #include <type_traits>
 #include <functional>
 #include <elladan/VMap.h>
-
 #include "../json.h"
 
 namespace elladan { 
 namespace json { 
-namespace bsonSerializer {
+namespace bson {
 
 struct Serializer {
    Serializer(std::ostream& out);
@@ -42,4 +41,3 @@ struct Serializer {
 void write(const Json& data, std::ostream& out);
 
 } } } // namespace elladan::json:jsonSerializer
-

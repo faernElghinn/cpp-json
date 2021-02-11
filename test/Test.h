@@ -8,10 +8,9 @@
 #ifndef TEST_TEST_H_
 #define TEST_TEST_H_
 
-#include "../src/json.h"
-
 #include <cstdio>
 #include <string>
+#include "../src/json.h"
 
 #define EXE_TEST(func) do { std::string str = func; if (!str.empty()){ valid = false; printf("Test " #func  " failed : %s\n", str.c_str());} } while (0)
 

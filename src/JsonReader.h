@@ -19,7 +19,7 @@
 #include <elladan/FlagSet.h>
 #include <elladan/VMap.h>
 
-#include "../json.h"
+#include "json.h"
 
 namespace elladan { 
 namespace json { 
@@ -70,6 +70,6 @@ public:
 };
 
 json::Json read(std::istream& in, DecodingOption flag = DecodingOption());
-std::vector<json::Json> extract(std::istream& in, DecodingOption flag, const std::string& path);
+std::vector<json::Json> extract(std::istream& in, const std::string& path, DecodingOption flag = DecodingOption());
 
 }}} // namespaces

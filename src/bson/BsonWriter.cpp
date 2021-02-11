@@ -18,37 +18,12 @@
 #include <memory>
 #include <utility>
 
+#include "Bson.hpp"
+
 using std::to_string;
 
 
-namespace elladan { namespace json { namespace bsonSerializer {
-
-constexpr char DOC_END = 0x00;
-constexpr char ELE_TYPE_DOUBLE = 0x01;
-constexpr char ELE_TYPE_UTF_STRING = 0x02;
-constexpr char ELE_TYPE_OBJECT = 0x03;
-constexpr char ELE_TYPE_ARRAY = 0x04;
-constexpr char ELE_TYPE_BIN = 0x05;
-//constexpr char ELE_TYPE_DEPRECATED = 0x06;
-//constexpr char ELE_TYPE_OBJECT_ID = 0x07;
-constexpr char ELE_TYPE_BOOL = 0x08;
-//constexpr char ELE_TYPE_UTC_DATETIME= 0x09;
-constexpr char ELE_TYPE_NULL = 0x0A;
-//constexpr char ELE_TYPE_REGEX = 0x0B;
-//constexpr char ELE_TYPE_DEPRECATED = 0x0C;
-//constexpr char ELE_TYPE_JAVASCRIPT = 0x0D;
-//constexpr char ELE_TYPE_DEPRECATED = 0x0E;
-//constexpr char ELE_TYPE_JAVASCRIPT_SCOPED = 0x0F;
-//constexpr char ELE_TYPE_INT32 = 0x10;
-//constexpr char ELE_TYPE_UINT64 = 0x11;
-constexpr char ELE_TYPE_INT64 = 0x12;
-//constexpr char ELE_TYPE_DECIMAL128 = 0x13;
-//constexpr char ELE_TYPE_MIN = 0xFF;
-//constexpr char ELE_TYPE_MAX = 0x7F;
-constexpr char BINARY_SUBTYPE_GENERIC = 0x00;
-constexpr char BINARY_SUBTYPE_BINARY_OLD = 0x02;
-constexpr char BINARY_SUBTYPE_UUID_OLD = 0x03;
-constexpr char BINARY_SUBTYPE_UUID = 0x04;
+namespace elladan { namespace json { namespace bson {
 
 class SizeMarker{
 public:
@@ -56,7 +31,7 @@ public:
       _init_pos = ser.oStr.tellp();
       ser << (int32_t) 0;
    }
-   ~SizeMarker(){
+   ~SizeMarker() {
       int end_pos = ser.oStr.tellp();
       ser.oStr.seekp(_init_pos);
       int32_t size = end_pos - _init_pos;
@@ -93,7 +68,7 @@ Serializer& Serializer::operator <<(int32_t v) {
    oStr.write((const char*)&v, sizeof(v));
    return *this;
 }
-Serializer& Serializer::write(void* data, size_t size){
+Serializer& Serializer::write(void* data, size_t size) {
    oStr.write((const char*)data, size);
    return *this;
 }
@@ -158,7 +133,7 @@ elladan::VMap<JsonType, Serializer::writer> Serializer::writeMap = {
    {Json::typeOf<Binary>(), {ELE_TYPE_BIN, &serBinary }}
 };
 
-Serializer& Serializer::operator <<(const Json& val){
+Serializer& Serializer::operator <<(const Json& val) {
    auto ite = writeMap.find(val.getType());
    if (ite == writeMap.end())
       throw Exception("No serializer for json element" + to_string(val));

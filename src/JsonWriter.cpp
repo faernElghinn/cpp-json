@@ -11,6 +11,7 @@
 #include <elladan/Stringify.h>
 #include <elladan/UUID.h>
 #include <elladan/Binary.h>
+#include <elladan/utf.h>
 #include <stddef.h>
 #include <algorithm>
 #include <cctype>
@@ -22,7 +23,6 @@
 #include <vector>
 #include <iomanip>
 
-#include "../utf.h"
 
 using std::to_string;
 
@@ -157,7 +157,7 @@ static void ObjectMap(Serializer& s, const Json& ele) {
       sorted.emplace(&ite.first, &ite.second);
 
    if (s._flag.test(SORT_KEY))
-      sorted.sort([](const std::pair<const std::string*, const Json*>& lhs, const std::pair<const std::string*, const Json*>& rhs) -> bool { return *lhs.first < *rhs.first; } );
+      sorted.sort([](const VMap<const std::string*, const Json*>::pair& lhs, const VMap<const std::string*, const Json*>::pair& rhs) -> bool { return *lhs.first < *rhs.first; } );
 
    for (auto ite : sorted) {
       if (!first)
@@ -233,3 +233,19 @@ void write(const Json& data, std::ostream& out, EncodingOption flag) {
 }
 
 }}} // elladan::json::jsonSerializer
+
+
+namespace std {
+
+std::string to_string(const elladan::json::Object& ele){
+   std::stringstream ss;
+   elladan::json::jsonSerializer::write(ele, ss);
+   return ss.str();
+}
+
+std::string to_string(const elladan::json::Array& ele){
+   std::stringstream ss;
+   elladan::json::jsonSerializer::write(ele, ss);
+   return ss.str();
+}
+}
